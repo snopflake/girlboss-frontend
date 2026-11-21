@@ -1,0 +1,38 @@
+.layout {
+  display: flex;
+  min-height: 100vh;
+  flex-direction: column;
+  background: var(--color-surface-subtle);
+}
+
+.loginLink,
+.registerLink {
+  display: inline-flex;
+  min-height: var(--size-control-height);
+  align-items: center;
+  justify-content: center;
+  padding-inline: var(--space-3);
+  border-radius: var(--radius-control);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.loginLink {
+  color: var(--color-text-secondary);
+}
+
+.loginLink:hover {
+  color: var(--color-primary-dark);
+  background: var(--color-primary-surface);
+}
+
+.registerLink {
+  color: var(--color-text-inverse);
+  background: var(--gradient-primary);
+}
+
+.registerLink:hover {
+  background: var(--gradient-primary-hover);
+}

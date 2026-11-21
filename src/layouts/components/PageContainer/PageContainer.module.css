@@ -1,0 +1,18 @@
+.main {
+  width: 100%;
+  min-width: 0;
+  flex: 1;
+  padding: var(--space-8) var(--space-6);
+}
+
+.content {
+  width: 100%;
+  max-width: var(--content-max-width);
+  margin-inline: auto;
+}
+
+@media (max-width: 640px) {
+  .main {
+    padding: var(--space-6) var(--space-4);
+  }
+}

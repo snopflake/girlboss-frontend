@@ -1,5 +1,10 @@
-import ComponentShowcase from './design-system/ComponentShowcase'
+import { AppProviders } from './app/providers/AppProviders'
+import { AppRouter } from './app/router/AppRouter'
 
 export default function App() {
-  return <ComponentShowcase />
+  return (
+    <AppProviders>
+      <AppRouter />
+    </AppProviders>
+  )
 }
