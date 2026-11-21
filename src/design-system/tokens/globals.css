@@ -1,0 +1,58 @@
+@import "./colors.css";
+@import "./typography.css";
+@import "./gradients.css";
+@import "./spacing.css";
+@import "./radius.css";
+@import "./sizing.css";
+@import "./shadows.css";
+
+:root {
+  font-family: var(--font-family-sans);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--line-height-normal);
+  color: var(--color-text-primary);
+  background: var(--color-surface-subtle);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  margin: 0;
+  color: var(--color-text-primary);
+  background: var(--color-surface-subtle);
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  color: inherit;
+}
+
+a {
+  color: inherit;
+}
+
+:focus-visible {
+  outline: var(--border-width-default) solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+#root {
+  min-height: 100vh;
+}

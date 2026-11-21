@@ -1,0 +1,4 @@
+:root {
+  --gradient-primary: linear-gradient(110deg, var(--color-primary) 0%, var(--color-secondary) 100%);
+  --gradient-primary-hover: linear-gradient(110deg, var(--color-primary-dark) 0%, var(--color-secondary) 100%);
+}

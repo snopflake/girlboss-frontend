@@ -1,0 +1,14 @@
+:root {
+  --size-control-height: 36px;
+  --size-button-small-height: 32px;
+  --size-badge-height: 22px;
+  --size-icon-button-small: 32px;
+  --size-icon-button-medium: 36px;
+  --size-icon-button-large: 40px;
+  --size-textarea-min-height: 96px;
+  --size-focus-ring: 3px;
+  --border-width-default: 1px;
+  --duration-fast: 150ms;
+  --duration-normal: 200ms;
+  --content-max-width: 1200px;
+}

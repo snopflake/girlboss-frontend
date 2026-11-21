@@ -1,0 +1,5 @@
+:root {
+  --shadow-card: 0 1px 3px rgb(10 10 10 / 6%), 0 1px 2px rgb(10 10 10 / 4%);
+  --shadow-card-hover: 0 8px 24px rgb(10 10 10 / 8%);
+  --shadow-focus: 0 0 0 var(--size-focus-ring) var(--color-focus-ring);
+}

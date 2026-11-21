@@ -1,0 +1,63 @@
+.wrapper {
+  position: relative;
+  display: flex;
+  width: 100%;
+  min-height: var(--size-control-height);
+  align-items: center;
+  border: var(--border-width-default) solid var(--color-border-input);
+  border-radius: var(--radius-control);
+  background: var(--color-surface-muted);
+  transition:
+    border-color var(--duration-fast) ease,
+    box-shadow var(--duration-fast) ease,
+    background var(--duration-fast) ease;
+}
+
+.wrapper:focus-within {
+  border-color: var(--color-primary);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-focus);
+}
+
+.wrapper.invalid {
+  border-color: var(--color-danger);
+}
+
+.wrapper.invalid:focus-within {
+  box-shadow: 0 0 0 var(--size-focus-ring) var(--color-danger-surface);
+}
+
+.wrapper.disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.select {
+  width: 100%;
+  min-width: 0;
+  height: calc(var(--size-control-height) - (var(--border-width-default) * 2));
+  padding: 0 var(--space-8) 0 var(--space-3);
+  appearance: none;
+  border: 0;
+  outline: 0;
+  color: var(--color-text-primary);
+  background: transparent;
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+}
+
+.select:focus-visible {
+  outline: 0;
+}
+
+.select:disabled {
+  cursor: not-allowed;
+}
+
+.chevron {
+  position: absolute;
+  right: var(--space-3);
+  flex: 0 0 auto;
+  color: var(--color-text-muted);
+  pointer-events: none;
+}

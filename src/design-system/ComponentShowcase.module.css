@@ -1,0 +1,187 @@
+.page {
+  width: min(100% - var(--space-8), var(--content-max-width));
+  margin-inline: auto;
+  padding-block: var(--space-8) var(--space-12);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: var(--space-4);
+  border-bottom: var(--border-width-default) solid var(--color-border-card);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+}
+
+.brandIcon {
+  display: grid;
+  width: var(--size-control-height);
+  height: var(--size-control-height);
+  place-items: center;
+  border-radius: var(--radius-control);
+  color: var(--color-text-inverse);
+  background: var(--gradient-primary);
+}
+
+.headerCaption,
+.lead,
+.cardContent p {
+  color: var(--color-text-secondary);
+}
+
+.headerCaption {
+  font-size: var(--font-size-sm);
+}
+
+.intro {
+  max-width: 700px;
+  padding-block: var(--space-12) var(--space-8);
+}
+
+.eyebrow {
+  margin: 0 0 var(--space-2);
+  color: var(--color-primary-dark);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.intro h1 {
+  margin: 0;
+  font-size: clamp(var(--font-size-2xl), 5vw, var(--font-size-3xl));
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-tight);
+}
+
+.lead {
+  max-width: 600px;
+  margin-top: var(--space-3);
+  font-size: var(--font-size-md);
+}
+
+.sections {
+  display: grid;
+  gap: var(--space-8);
+}
+
+.section {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.sectionHeading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.sectionHeading h2 {
+  margin: 0;
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
+}
+
+.componentPath {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+
+.demoCard {
+  display: grid;
+  gap: var(--space-6);
+}
+
+.buttonGrid,
+.iconButtonRow,
+.badgeRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.iconButtonRow {
+  padding-top: var(--space-4);
+  border-top: var(--border-width-default) solid var(--color-border);
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-6) var(--space-4);
+}
+
+.fullWidth {
+  grid-column: 1 / -1;
+}
+
+.cardGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: var(--space-4);
+}
+
+.cardContent {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-3);
+}
+
+.cardContent h3 {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
+}
+
+.cardContent p {
+  margin: 0;
+  font-size: var(--font-size-sm);
+}
+
+.footer {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-2);
+  margin-top: var(--space-12);
+  padding-top: var(--space-4);
+  border-top: var(--border-width-default) solid var(--color-border-card);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+
+@media (max-width: 640px) {
+  .page {
+    width: min(100% - var(--space-4), var(--content-max-width));
+    padding-top: var(--space-4);
+  }
+
+  .header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .intro {
+    padding-block: var(--space-8);
+  }
+
+  .formGrid,
+  .cardGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .fullWidth {
+    grid-column: auto;
+  }
+}
