@@ -13,6 +13,7 @@ export const routePaths = {
     jobs: '/applicant/jobs',
     savedJobs: '/applicant/jobs/saved',
     applications: '/applicant/applications',
+    applicationDetail: '/applicant/applications/:id',
     events: '/applicant/events',
     cvAnalyzer: '/applicant/cv-analyzer',
     interview: '/applicant/interview',

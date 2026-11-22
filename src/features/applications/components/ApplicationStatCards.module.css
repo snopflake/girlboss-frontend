@@ -1,0 +1,124 @@
+.grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.card {
+  display: flex;
+  height: 100%;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.icon {
+  display: inline-grid;
+  width: var(--size-icon-button-large);
+  height: var(--size-icon-button-large);
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: var(--radius-dialog);
+}
+
+.text {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-1);
+}
+
+.label {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+
+.value {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-normal);
+}
+
+/* Border berwarna diturunkan dari token semantik (belum ada token border per-tone). */
+.brand .icon {
+  color: var(--color-primary-dark);
+  background: var(--color-primary-surface);
+}
+
+.brand .value {
+  color: var(--color-primary-dark);
+}
+
+.neutral .value {
+  color: var(--color-text-secondary);
+}
+
+/* Aksen ungu (status Wawancara), diturunkan dari --color-secondary. */
+.accent {
+  border-color: color-mix(in srgb, var(--color-secondary) 20%, var(--color-surface));
+}
+
+.accent .icon,
+.accent .value {
+  color: var(--color-secondary);
+}
+
+.accent .icon {
+  background: color-mix(in srgb, var(--color-secondary) 10%, var(--color-surface));
+}
+
+.info {
+  border-color: color-mix(in srgb, var(--color-info) 25%, var(--color-surface));
+}
+
+.info .icon {
+  color: var(--color-info);
+  background: var(--color-info-surface);
+}
+
+.info .value {
+  color: var(--color-text-secondary);
+}
+
+.success {
+  border-color: color-mix(in srgb, var(--color-success) 25%, var(--color-surface));
+}
+
+.success .icon,
+.success .value {
+  color: var(--color-success);
+}
+
+.success .icon {
+  background: var(--color-success-surface);
+}
+
+.danger {
+  border-color: color-mix(in srgb, var(--color-danger) 25%, var(--color-surface));
+}
+
+.danger .icon,
+.danger .value {
+  color: var(--color-danger);
+}
+
+.danger .icon {
+  background: var(--color-danger-surface);
+}
+
+@media (max-width: 900px) {
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 400px) {
+  .grid {
+    gap: var(--space-3);
+  }
+
+  .card {
+    gap: var(--space-3);
+  }
+}

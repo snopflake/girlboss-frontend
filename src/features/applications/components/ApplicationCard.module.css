@@ -1,0 +1,111 @@
+.card {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+  transition: box-shadow var(--duration-normal) ease;
+}
+
+.card:hover {
+  box-shadow: var(--shadow-card);
+}
+
+.logo {
+  display: inline-grid;
+  width: var(--space-12);
+  height: var(--space-12);
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: var(--radius-dialog);
+  color: var(--color-primary-dark);
+  background: var(--color-primary-surface);
+}
+
+.info {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  gap: var(--space-2);
+  justify-items: start;
+}
+
+.title {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-normal);
+}
+
+.company {
+  margin: 0;
+  color: var(--color-primary-dark);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-4);
+  margin: 0;
+  padding: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  list-style: none;
+}
+
+.meta li {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.meta svg {
+  flex: 0 0 auto;
+}
+
+.meta li:nth-child(2) svg {
+  color: var(--color-primary-dark);
+}
+
+.updated {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+}
+
+.aside {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-6);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+@media (max-width: 640px) {
+  .card {
+    flex-wrap: wrap;
+  }
+
+  .info {
+    flex-basis: calc(100% - var(--space-12) - var(--space-4));
+  }
+
+  .aside {
+    width: 100%;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding-top: var(--space-4);
+    border-top: var(--border-width-default) solid var(--color-border-card);
+  }
+}

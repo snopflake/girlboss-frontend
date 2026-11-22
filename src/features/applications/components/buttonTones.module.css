@@ -1,0 +1,23 @@
+/*
+ * Penyesuaian warna untuk Button variant "outline" sesuai Figma Lamaran Saya.
+ * Selector `button.x` dipakai agar menimpa varian design system tanpa
+ * mengubah komponen global.
+ * Usulan ke design system: varian Button `outline-brand` dan `outline-danger`.
+ */
+button.brandOutline {
+  color: var(--color-primary-dark);
+  border-color: color-mix(in srgb, var(--color-primary) 45%, var(--color-surface));
+}
+
+button.dangerOutline {
+  color: var(--color-danger);
+  border-color: color-mix(in srgb, var(--color-danger) 40%, var(--color-surface));
+}
+
+button.dangerOutline:hover:not(:disabled) {
+  background: var(--color-danger-surface);
+}
+
+button.fullWidth {
+  width: 100%;
+}

@@ -1,0 +1,310 @@
+.page {
+  display: grid;
+  gap: var(--space-6);
+}
+
+.topBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+}
+
+.breadcrumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  list-style: none;
+}
+
+.breadcrumbs li + li::before {
+  margin-right: var(--space-2);
+  content: "/";
+}
+
+.breadcrumbs a {
+  color: var(--color-text-secondary);
+  text-decoration: none;
+}
+
+.breadcrumbs a:hover {
+  color: var(--color-primary-dark);
+}
+
+.textLink {
+  display: inline-flex;
+  min-height: var(--size-control-height);
+  align-items: center;
+  gap: var(--space-1);
+  padding-inline: var(--space-3);
+  border-radius: var(--radius-control);
+  color: var(--color-primary-dark);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  text-decoration: none;
+  transition: background var(--duration-fast) ease;
+}
+
+.textLink:hover {
+  background: var(--color-primary-surface);
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  align-items: start;
+  gap: var(--space-8);
+}
+
+.main,
+.aside {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-6);
+}
+
+.section {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-4);
+}
+
+/* Figma memakai merah marun (#861043) untuk judul seksi; belum ada tokennya,
+ * sehingga dipakai --color-primary-dark. Usulan token: --color-heading-accent. */
+.sectionTitle {
+  margin: 0;
+  color: var(--color-primary-dark);
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-normal);
+}
+
+.position {
+  display: flex;
+  width: 100%;
+  align-items: flex-start;
+  gap: var(--space-4);
+}
+
+.logo {
+  display: inline-grid;
+  width: var(--size-icon-button-large);
+  height: var(--size-icon-button-large);
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: var(--radius-dialog);
+  color: var(--color-primary-dark);
+  background: var(--color-primary-surface);
+}
+
+.logoMedium {
+  width: var(--space-12);
+  height: var(--space-12);
+}
+
+.logoLarge {
+  width: calc(var(--space-8) * 2);
+  height: calc(var(--space-8) * 2);
+}
+
+.identity {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  gap: var(--space-2);
+}
+
+.jobTitle {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-normal);
+}
+
+.company {
+  margin: 0;
+  color: var(--color-primary-dark);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+.meta {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  white-space: pre-wrap;
+}
+
+.documents {
+  display: grid;
+  width: 100%;
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.document {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.documentInfo {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  gap: var(--space-1);
+}
+
+.documentName {
+  overflow: hidden;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.documentMeta {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+
+.coverLetter {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-md);
+  line-height: var(--line-height-relaxed);
+}
+
+.coverLetter p {
+  margin: 0;
+}
+
+.clamped {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  line-clamp: 4;
+}
+
+button.inlineAction {
+  padding-inline: var(--space-3);
+  color: var(--color-primary-dark);
+}
+
+.summary {
+  display: grid;
+  gap: var(--space-4);
+  margin: 0;
+}
+
+.summary div {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.summary dt {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+}
+
+.summary dd {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+/* Kartu aksen ungu: diturunkan dari --color-secondary (usulan token --color-accent-*). */
+.interviewCard {
+  border-color: color-mix(in srgb, var(--color-secondary) 30%, var(--color-surface));
+  background: color-mix(in srgb, var(--color-secondary) 8%, var(--color-surface));
+}
+
+.interviewTitle {
+  margin: 0;
+  color: var(--color-secondary);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+}
+
+.interviewText {
+  margin: 0;
+  color: var(--color-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.companyInfo {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.companyName {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+}
+
+.industry {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.cancel {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.cancelNote {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (max-width: 900px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .position {
+    flex-wrap: wrap;
+  }
+
+  .logoLarge {
+    width: var(--space-12);
+    height: var(--space-12);
+  }
+
+  .jobTitle {
+    font-size: var(--font-size-xl);
+  }
+
+  .document {
+    flex-wrap: wrap;
+  }
+
+  .document button {
+    width: 100%;
+  }
+}
