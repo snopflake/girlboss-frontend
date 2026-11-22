@@ -1,0 +1,84 @@
+.wrapper {
+  width: 100%;
+}
+
+.block {
+  display: block;
+  border-radius: var(--radius-card);
+  background: linear-gradient(
+    90deg,
+    var(--color-surface-muted) 0%,
+    var(--color-primary-surface) 50%,
+    var(--color-surface-muted) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
+  gap: var(--space-6);
+}
+
+.card {
+  height: 480px;
+}
+
+.detail {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: var(--space-6);
+}
+
+.column {
+  display: grid;
+  gap: var(--space-6);
+}
+
+.hero {
+  height: 400px;
+}
+
+.content {
+  height: 480px;
+}
+
+.aside {
+  height: 320px;
+}
+
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 100% 0;
+  }
+
+  to {
+    background-position: -100% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .block {
+    animation: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .detail {
+    grid-template-columns: 1fr;
+  }
+
+  .hero {
+    height: 220px;
+  }
+}

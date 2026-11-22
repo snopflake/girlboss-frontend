@@ -1,0 +1,19 @@
+/*
+ * Status "Wawancara" memakai aksen ungu pada Figma. Design system belum punya
+ * token aksen, sehingga warnanya diturunkan dari --color-secondary.
+ * Usulan token global: --color-accent & --color-accent-surface.
+ */
+.badge.interview {
+  color: var(--color-secondary);
+  background: color-mix(in srgb, var(--color-secondary) 10%, var(--color-surface));
+  border-color: transparent;
+}
+
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

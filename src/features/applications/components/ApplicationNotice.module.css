@@ -1,0 +1,43 @@
+.notice {
+  display: flex;
+  width: 100%;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: var(--border-width-default) solid transparent;
+  border-radius: var(--radius-control);
+  font-size: var(--font-size-sm);
+}
+
+.notice svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
+
+.notice p {
+  margin: 0;
+}
+
+.info {
+  color: var(--color-info);
+  background: var(--color-info-surface);
+  border-color: color-mix(in srgb, var(--color-info) 25%, var(--color-surface));
+}
+
+.success {
+  color: var(--color-success);
+  background: var(--color-success-surface);
+  border-color: color-mix(in srgb, var(--color-success) 25%, var(--color-surface));
+}
+
+.neutral {
+  color: var(--color-neutral);
+  background: var(--color-neutral-surface);
+  border-color: var(--color-border);
+}
+
+.danger {
+  color: var(--color-danger);
+  background: var(--color-danger-surface);
+  border-color: color-mix(in srgb, var(--color-danger) 25%, var(--color-surface));
+}

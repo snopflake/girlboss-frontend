@@ -19,6 +19,7 @@ import PublicJobsPage from '../../features/jobs/pages/PublicJobsPage'
 import SavedJobsPage from '../../features/jobs/pages/SavedJobsPage'
 import IncomingApplicationsPage from '../../features/applications/pages/IncomingApplicationsPage'
 import MyApplicationsPage from '../../features/applications/pages/MyApplicationsPage'
+import MyApplicationDetailPage from '../../features/applications/pages/MyApplicationDetailPage'
 import ApplicantEventsPage from '../../features/events/pages/ApplicantEventsPage'
 import EventDetailPage from '../../features/events/pages/EventDetailPage'
 import PublicEventsPage from '../../features/events/pages/PublicEventsPage'
@@ -71,8 +72,16 @@ export function AppRouter() {
                 element={<MyApplicationsPage />}
               />
               <Route
+                path={routePaths.applicant.applicationDetail}
+                element={<MyApplicationDetailPage />}
+              />
+              <Route
                 path={routePaths.applicant.events}
                 element={<ApplicantEventsPage />}
+              />
+              <Route
+                path={routePaths.applicant.eventDetail}
+                element={<EventDetailPage audience="applicant" />}
               />
               <Route
                 path={routePaths.applicant.cvAnalyzer}

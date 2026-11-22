@@ -1,0 +1,41 @@
+.row {
+  align-items: end;
+}
+
+.actions {
+  align-self: end;
+  padding-bottom: 2px;
+}
+
+.openLink,
+.openPlaceholder {
+  display: inline-grid;
+  width: var(--size-icon-button-small);
+  height: var(--size-icon-button-small);
+  place-items: center;
+  border-radius: var(--radius-control);
+}
+
+.openLink {
+  color: var(--color-primary-dark);
+  transition: background var(--duration-fast) ease;
+}
+
+.openLink:hover {
+  background: var(--color-border-card);
+}
+
+.openLink:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
+}
+
+.tipTitle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.tipTitle svg {
+  color: var(--color-warning);
+}

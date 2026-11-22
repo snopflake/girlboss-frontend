@@ -1,0 +1,125 @@
+.card {
+  position: relative;
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+  overflow: hidden;
+  transition:
+    box-shadow var(--duration-normal) ease,
+    transform var(--duration-normal) ease;
+}
+
+.card:hover,
+.card:focus-within {
+  box-shadow: var(--shadow-card-hover);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .card:hover {
+    transform: translateY(-2px);
+  }
+}
+
+.body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-6);
+}
+
+/* Judul seksi/kartu marun di Figma (#861043) → --color-primary-dark
+ * (usulan token: --color-heading-accent). */
+.title {
+  margin: 0;
+  color: var(--color-primary-dark);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--line-height-normal);
+}
+
+.titleLink {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* Seluruh kartu dapat diklik lewat tautan judul. */
+.titleLink::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+}
+
+.titleLink:focus-visible {
+  outline: none;
+}
+
+.card:has(.titleLink:focus-visible) {
+  box-shadow: var(--shadow-focus);
+}
+
+.summary {
+  display: -webkit-box;
+  margin: 0 0 var(--space-2);
+  overflow: hidden;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+.meta {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  list-style: none;
+}
+
+.meta li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.meta svg,
+.capacity svg {
+  flex: 0 0 auto;
+  color: var(--color-primary-dark);
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-top: auto;
+  padding-top: var(--space-4);
+  border-top: var(--border-width-default) solid var(--color-border-card);
+}
+
+.capacity {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+/* Tombol berada di atas lapisan tautan kartu. */
+.action {
+  position: relative;
+  z-index: 1;
+}
+
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

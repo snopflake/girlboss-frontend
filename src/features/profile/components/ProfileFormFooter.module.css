@@ -1,0 +1,24 @@
+.status {
+  min-width: 0;
+  flex: 1;
+  margin: 0;
+  font-size: var(--font-size-sm);
+}
+
+.status:empty {
+  display: none;
+}
+
+.success {
+  color: var(--color-success);
+}
+
+.error {
+  color: var(--color-danger);
+}
+
+@media (max-width: 480px) {
+  .status {
+    flex-basis: 100%;
+  }
+}

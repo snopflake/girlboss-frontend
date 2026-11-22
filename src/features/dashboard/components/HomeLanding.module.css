@@ -1,0 +1,227 @@
+.page {
+  display: grid;
+  gap: var(--space-12);
+  padding-block: var(--space-6) var(--space-8);
+}
+
+.hero,
+.closing {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-4);
+  text-align: center;
+}
+
+.eyebrow {
+  margin: 0;
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-pill);
+  color: var(--color-primary-dark);
+  background: var(--color-border-card);
+  font-size: var(--font-size-md);
+}
+
+.heroTitle {
+  margin: 0;
+  color: var(--color-primary-dark);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-regular);
+}
+
+.heroText {
+  max-width: 800px;
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-lg);
+  line-height: var(--line-height-relaxed);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-4);
+}
+
+/* Link bergaya tombol (pola sama dengan tombol "Daftar" di PublicLayout).
+ * Usulan ke design system: komponen LinkButton / Button `asChild`. */
+.ctaPrimary,
+.ctaOutline {
+  display: inline-flex;
+  min-height: var(--space-12);
+  align-items: center;
+  justify-content: center;
+  padding-inline: var(--space-8);
+  border: var(--border-width-default) solid transparent;
+  border-radius: var(--radius-control);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  text-decoration: none;
+  transition:
+    background var(--duration-fast) ease,
+    box-shadow var(--duration-fast) ease;
+}
+
+.ctaPrimary {
+  color: var(--color-text-inverse);
+  background: var(--gradient-primary);
+  box-shadow: var(--shadow-card);
+}
+
+.ctaPrimary:hover {
+  background: var(--gradient-primary-hover);
+}
+
+.ctaOutline {
+  color: var(--color-primary-dark);
+  border-color: color-mix(in srgb, var(--color-primary) 45%, var(--color-surface));
+  background: var(--color-surface);
+}
+
+.ctaOutline:hover {
+  background: var(--color-primary-surface);
+}
+
+.ctaPrimary:focus-visible,
+.ctaOutline:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
+}
+
+.features {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-8);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.feature {
+  display: grid;
+  height: 100%;
+  align-content: start;
+  gap: var(--space-4);
+}
+
+.featureIcon {
+  display: inline-grid;
+  width: var(--space-12);
+  height: var(--space-12);
+  place-items: center;
+  border-radius: var(--radius-dialog);
+  color: var(--color-text-inverse);
+  background: var(--gradient-primary);
+}
+
+/* Judul marun di Figma (#861043) → --color-primary-dark
+ * (usulan token: --color-heading-accent). */
+.featureTitle {
+  margin: 0;
+  color: var(--color-primary-dark);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-regular);
+}
+
+.featureText {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-relaxed);
+}
+
+.stats {
+  padding: var(--space-12) var(--space-8);
+  border-radius: var(--radius-banner);
+  color: var(--color-text-inverse);
+  background: var(--gradient-primary);
+}
+
+.statList {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-8);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.stat {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-2);
+  text-align: center;
+}
+
+.statValue {
+  font-size: var(--font-size-lg);
+}
+
+.statLabel {
+  font-size: var(--font-size-sm);
+  opacity: 0.9;
+}
+
+.closingIcon {
+  color: var(--color-primary);
+}
+
+.closingTitle {
+  margin: 0;
+  color: var(--color-primary-dark);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-regular);
+}
+
+.closingText {
+  max-width: 600px;
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-md);
+}
+
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (max-width: 900px) {
+  .features {
+    grid-template-columns: 1fr;
+    gap: var(--space-4);
+  }
+}
+
+@media (max-width: 640px) {
+  .page {
+    gap: var(--space-8);
+    padding-block: var(--space-2) var(--space-6);
+  }
+
+  .heroText {
+    font-size: var(--font-size-md);
+  }
+
+  .actions {
+    width: 100%;
+    flex-direction: column;
+  }
+
+  .ctaPrimary,
+  .ctaOutline {
+    width: 100%;
+  }
+
+  .stats {
+    padding: var(--space-8) var(--space-4);
+  }
+
+  .statList {
+    grid-template-columns: 1fr;
+    gap: var(--space-6);
+  }
+}
