@@ -1,37 +1,106 @@
-.page {
+.card {
   display: grid;
-  justify-items: start;
-  gap: var(--space-3);
+  width: min(100%, 532px);
+  gap: var(--space-5);
+  padding: clamp(24px, 4vw, 36px);
+  border-color: var(--color-border-card);
+  box-shadow: var(--shadow-card-hover);
 }
 
-.page h1 {
+.registerCard {
+  width: min(100%, 456px);
+  gap: var(--space-4);
+  padding: clamp(22px, 4vw, 30px);
+}
+
+.heading {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-1);
+  text-align: center;
+}
+
+.heading h1 {
   margin: 0;
-  color: var(--color-text-primary);
-  font-size: var(--font-size-2xl);
-  font-weight: var(--font-weight-bold);
+  color: var(--color-primary);
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-medium);
   line-height: var(--line-height-tight);
 }
 
-.page p {
+.heading p {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-md);
+}
+
+.form {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-4);
+}
+
+.registerCard .form {
+  gap: var(--space-3);
+}
+
+.submitButton {
+  width: 100%;
+  margin-top: var(--space-1);
+}
+
+.footerText {
   margin: 0;
   color: var(--color-text-secondary);
   font-size: var(--font-size-sm);
+  text-align: center;
 }
 
-.actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.link {
-  color: var(--color-primary-dark);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
+.link,
+.noticeLink {
+  color: var(--color-primary);
+  font-weight: var(--font-weight-medium);
   text-decoration: none;
 }
 
-.link:hover {
+.link:hover,
+.noticeLink:hover {
   text-decoration: underline;
+}
+
+.noticeLink {
+  display: inline-block;
+  margin-top: var(--space-1);
+}
+
+.consentField {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.fieldError {
+  color: var(--color-danger);
+  font-size: var(--font-size-xs);
+}
+
+.confirmation {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.confirmation p {
+  margin: var(--space-1) 0 0;
+}
+
+.confirmationHint {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  text-align: center;
+}
+
+@media (max-width: 520px) {
+  .card,
+  .registerCard {
+    padding: var(--space-5);
+  }
 }

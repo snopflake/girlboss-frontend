@@ -25,6 +25,10 @@
   text-decoration: none;
 }
 
+.applicantBrand {
+  color: var(--color-primary);
+}
+
 .brandIcon {
   display: grid;
   width: var(--size-control-height);
@@ -58,6 +62,11 @@
   background: var(--color-primary-surface);
 }
 
+.applicantNavigation .active,
+.applicantNavigation .navLink:hover {
+  color: var(--color-primary);
+}
+
 .actions {
   display: flex;
   flex: 0 0 auto;
@@ -70,6 +79,25 @@
   margin-left: auto;
   color: var(--color-text-secondary);
   font-size: var(--font-size-sm);
+}
+
+.mobileToggle {
+  display: none;
+  width: var(--size-control-height);
+  height: var(--size-control-height);
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
+  border: 1px solid var(--color-border-card);
+  border-radius: var(--radius-control);
+  color: var(--color-text-primary);
+  background: var(--color-surface);
+  cursor: pointer;
+}
+
+.mobileToggle:hover {
+  color: var(--color-primary);
+  background: var(--color-primary-surface);
 }
 
 @media (max-width: 960px) {
@@ -91,5 +119,35 @@
 
   .contextLabel {
     margin-left: auto;
+  }
+}
+
+@media (max-width: 850px) {
+  .responsive.inner {
+    flex-wrap: wrap;
+    gap: var(--space-2) var(--space-3);
+    padding-block: var(--space-3);
+  }
+
+  .responsive .mobileToggle {
+    display: inline-flex;
+  }
+
+  .responsive .navigation {
+    display: none;
+    order: 4;
+    width: 100%;
+    overflow: visible;
+  }
+
+  .responsive .navigationOpen {
+    display: grid;
+    gap: var(--space-1);
+    padding-top: var(--space-2);
+    border-top: 1px solid var(--color-border-card);
+  }
+
+  .responsive .navLink {
+    padding: var(--space-3);
   }
 }

@@ -1,4 +1,4 @@
-import type { InputHTMLAttributes, ReactNode } from 'react'
+import { forwardRef, type InputHTMLAttributes, type ReactNode } from 'react'
 import styles from './Input.module.css'
 
 export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
@@ -7,14 +7,17 @@ export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   endAdornment?: ReactNode
 }
 
-export function Input({
-  invalid = false,
-  startAdornment,
-  endAdornment,
-  className,
-  'aria-invalid': ariaInvalid,
-  ...props
-}: InputProps) {
+export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
+  {
+    invalid = false,
+    startAdornment,
+    endAdornment,
+    className,
+    'aria-invalid': ariaInvalid,
+    ...props
+  },
+  ref,
+) {
   const isInvalid = invalid || ariaInvalid === true || ariaInvalid === 'true'
   const inputClasses = [styles.input, className].filter(Boolean).join(' ')
   const wrapperClasses = [
@@ -33,6 +36,7 @@ export function Input({
         </span>
       )}
       <input
+        ref={ref}
         className={inputClasses}
         aria-invalid={isInvalid || undefined}
         {...props}
@@ -44,4 +48,4 @@ export function Input({
       )}
     </span>
   )
-}
+})

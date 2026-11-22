@@ -1,0 +1,33 @@
+.notice {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-normal);
+}
+
+.notice svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
+
+.error {
+  border-color: #fecdca;
+  color: var(--color-danger);
+  background: var(--color-danger-surface);
+}
+
+.success {
+  border-color: #abefc6;
+  color: var(--color-success);
+  background: var(--color-success-surface);
+}
+
+.info {
+  border-color: #b2ddff;
+  color: var(--color-info);
+  background: var(--color-info-surface);
+}

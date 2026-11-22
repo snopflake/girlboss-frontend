@@ -1,0 +1,12 @@
+.layout {
+  display: flex;
+  min-height: 100vh;
+  flex-direction: column;
+  background: var(--color-surface-subtle);
+}
+
+.workspace {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+}

@@ -1,0 +1,111 @@
+.root {
+  position: relative;
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+
+.trigger {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  color: var(--color-text-inverse);
+  background: var(--gradient-primary);
+  box-shadow: 0 2px 6px rgb(200 0 222 / 18%);
+  cursor: pointer;
+}
+
+.trigger:hover {
+  box-shadow: 0 3px 10px rgb(200 0 222 / 28%);
+}
+
+.trigger:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 3px;
+}
+
+.dropdown {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + var(--space-2));
+  right: 0;
+  display: grid;
+  width: min(280px, calc(100vw - 32px));
+  padding: var(--space-2);
+  border: 1px solid var(--color-border-card);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card-hover);
+}
+
+.identity {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-1);
+  padding: var(--space-3);
+}
+
+.name,
+.email {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.name {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+}
+
+.email {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+}
+
+.item {
+  display: flex;
+  width: 100%;
+  min-height: 42px;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  border-radius: var(--radius-control);
+  color: var(--color-text-primary);
+  background: transparent;
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  text-align: left;
+  text-decoration: none;
+}
+
+.item:hover {
+  color: var(--color-primary);
+  background: var(--color-primary-surface);
+}
+
+.item:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
+}
+
+.item svg {
+  flex: 0 0 auto;
+}
+
+.divider {
+  height: 1px;
+  margin: var(--space-1) var(--space-2);
+  background: var(--color-border-card);
+}
+
+.logout {
+  color: var(--color-danger);
+}
+
+.logout:hover {
+  color: var(--color-danger);
+  background: var(--color-danger-surface);
+}

@@ -1,13 +1,9 @@
-import { createClient, type Session } from '@supabase/supabase-js'
-import { useEffect, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
+import { AuthApiError, getCurrentUser, loginWithApi } from '../../features/auth/api/authApi'
 import { AuthContext, type AuthState, type UserRole } from './AuthContext'
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim()
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim()
-const supabase =
-  supabaseUrl && supabaseAnonKey
-    ? createClient(supabaseUrl, supabaseAnonKey)
-    : null
+const sessionStorageKey = 'girlboss.auth.access-token'
 
 const initialState: AuthState = {
   status: 'loading',
@@ -15,92 +11,124 @@ const initialState: AuthState = {
   role: null,
 }
 
-function isUserRole(role: unknown): role is UserRole {
-  return role === 'applicant' || role === 'company' || role === 'admin'
-}
-
-function authStateFromSession(session: Session | null): AuthState {
-  if (!session) {
-    return { status: 'unauthenticated', user: null, role: null }
-  }
-
-  const metadataRole: unknown = session.user.app_metadata['role']
-  const role = isUserRole(metadataRole) ? metadataRole : null
-
-  return {
-    status: 'authenticated',
-    role,
-    user: {
-      id: session.user.id,
-      email: session.user.email ?? null,
-      role,
-    },
+function toUserRole(role: string): UserRole | null {
+  switch (role) {
+    case 'APPLICANT':
+      return 'applicant'
+    case 'COMPANY':
+      return 'company'
+    case 'ADMIN':
+      return 'admin'
+    default:
+      return null
   }
 }
 
-function authErrorState(error: unknown): AuthState {
-  const message =
-    error instanceof Error ? error.message : 'Sesi pengguna tidak dapat diperiksa.'
-
-  console.error('Unable to restore the Supabase session:', error)
-  return {
-    status: 'unauthenticated',
-    user: null,
-    role: null,
-    error: message,
-  }
+function errorMessage(error: unknown) {
+  return error instanceof Error
+    ? error.message
+    : 'Sesi pengguna tidak dapat diperiksa.'
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const queryClient = useQueryClient()
   const [state, setState] = useState<AuthState>(() =>
-    supabase
+    window.sessionStorage.getItem(sessionStorageKey)
       ? initialState
       : { status: 'unauthenticated', user: null, role: null },
   )
 
   useEffect(() => {
-    if (!supabase) {
-      return
+    let active = true
+    const accessToken = window.sessionStorage.getItem(sessionStorageKey)
+
+    if (!accessToken) {
+      return () => {
+        active = false
+      }
     }
 
-    let active = true
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (active) {
-        setState(authStateFromSession(session))
-      }
-    })
-
-    void supabase.auth
-      .getSession()
-      .then(({ data, error }) => {
-        if (!active) {
-          return
+    void getCurrentUser(accessToken)
+      .then((currentUser) => {
+        if (!active) return
+        const role = toUserRole(currentUser.role)
+        if (!role) {
+          throw new AuthApiError('Peran akun tidak dikenali.')
         }
-
-        if (error) {
-          setState(authErrorState(error))
-          return
-        }
-
-        setState(authStateFromSession(data.session))
+        setState({
+          status: 'authenticated',
+          role,
+          user: {
+            id: currentUser.id,
+            email: currentUser.email,
+            fullName: currentUser.fullName,
+            role,
+          },
+        })
       })
       .catch((error: unknown) => {
-        if (active) {
-          setState(authErrorState(error))
+        if (!active) return
+        if (error instanceof AuthApiError && error.status === 401) {
+          window.sessionStorage.removeItem(sessionStorageKey)
         }
+        setState({
+          status: 'unauthenticated',
+          user: null,
+          role: null,
+          error: errorMessage(error),
+        })
       })
 
     return () => {
       active = false
-      subscription.unsubscribe()
     }
   }, [])
 
-  return (
-    <AuthContext.Provider value={{ ...state, isConfigured: Boolean(supabase) }}>
-      {children}
-    </AuthContext.Provider>
+  const signIn = useCallback(async (email: string, password: string) => {
+    setState({ status: 'loading', user: null, role: null })
+    try {
+      const session = await loginWithApi(email, password)
+      window.sessionStorage.setItem(sessionStorageKey, session.accessToken)
+      const currentUser = await getCurrentUser(session.accessToken)
+      const role = toUserRole(currentUser.role)
+      if (!role) {
+        throw new AuthApiError('Peran akun tidak dikenali.')
+      }
+
+      const nextState: AuthState = {
+        status: 'authenticated',
+        role,
+        user: {
+          id: currentUser.id,
+          email: currentUser.email,
+          fullName: currentUser.fullName,
+          role,
+        },
+      }
+      setState(nextState)
+      return role
+    } catch (error) {
+      window.sessionStorage.removeItem(sessionStorageKey)
+      setState({
+        status: 'unauthenticated',
+        user: null,
+        role: null,
+        error: errorMessage(error),
+      })
+      throw error
+    }
+  }, [])
+
+  const signOut = useCallback(() => {
+    window.sessionStorage.removeItem(sessionStorageKey)
+    queryClient.clear()
+    setState({ status: 'unauthenticated', user: null, role: null })
+  }, [queryClient])
+
+  const value = useMemo(
+    () => ({ ...state, signIn, signOut }),
+    [signIn, signOut, state],
   )
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

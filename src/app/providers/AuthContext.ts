@@ -6,6 +6,7 @@ export type AuthStatus = 'loading' | 'authenticated' | 'unauthenticated'
 export interface AuthUser {
   id: string
   email: string | null
+  fullName: string | null
   role: UserRole | null
 }
 
@@ -17,7 +18,8 @@ export interface AuthState {
 }
 
 export interface AuthContextValue extends AuthState {
-  isConfigured: boolean
+  signIn(email: string, password: string): Promise<UserRole>
+  signOut(): void
 }
 
 export const AuthContext = createContext<AuthContextValue | undefined>(undefined)
