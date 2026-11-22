@@ -1,0 +1,14 @@
+.page {
+  display: grid;
+  width: 100%;
+  max-width: 896px;
+  gap: var(--space-4);
+  margin-inline: auto;
+  padding-top: var(--space-8);
+}
+
+@media (max-width: 640px) {
+  .page {
+    padding-top: 0;
+  }
+}

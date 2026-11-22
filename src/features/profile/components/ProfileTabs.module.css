@@ -1,0 +1,40 @@
+.tabs {
+  display: flex;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  overflow-x: auto;
+  border: var(--border-width-default) solid var(--color-border-card);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+  scrollbar-width: none;
+}
+
+.tab {
+  min-width: max-content;
+  flex: 1;
+  min-height: calc(var(--size-control-height) - var(--space-2));
+  padding: var(--space-1) var(--space-4);
+  border: 0;
+  border-radius: var(--radius-card);
+  color: var(--color-text-primary);
+  background: transparent;
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  transition:
+    background var(--duration-fast) ease,
+    color var(--duration-fast) ease;
+}
+
+.tab:hover:not(.selected) {
+  background: var(--color-surface-subtle);
+}
+
+.tab:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
+}
+
+.selected {
+  color: var(--color-primary-dark);
+  background: var(--color-primary-surface);
+}

@@ -1,0 +1,57 @@
+.card {
+  overflow: hidden;
+}
+
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3) var(--space-4);
+  padding: var(--space-4) var(--space-4);
+  border-bottom: var(--border-width-default) solid var(--color-border-card);
+}
+
+.heading {
+  display: grid;
+  gap: var(--space-1);
+}
+
+/* Judul seksi marun di Figma (#861043) → --color-primary-dark
+ * (usulan token: --color-heading-accent). */
+.title {
+  margin: 0;
+  color: var(--color-primary-dark);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-regular);
+}
+
+.description {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.body {
+  display: grid;
+  gap: var(--space-6);
+  padding: var(--space-8) var(--space-4) var(--space-6);
+}
+
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin: 0 var(--space-4);
+  padding: var(--space-4) 0;
+  border-top: var(--border-width-default) solid var(--color-border-card);
+}
+
+@media (min-width: 641px) {
+  .header,
+  .body {
+    padding-inline: var(--space-4);
+  }
+}
