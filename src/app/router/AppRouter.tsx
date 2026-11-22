@@ -80,6 +80,10 @@ export function AppRouter() {
                 element={<ApplicantEventsPage />}
               />
               <Route
+                path={routePaths.applicant.eventDetail}
+                element={<EventDetailPage audience="applicant" />}
+              />
+              <Route
                 path={routePaths.applicant.cvAnalyzer}
                 element={<CvAnalyzerPage />}
               />

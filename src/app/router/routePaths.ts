@@ -15,6 +15,7 @@ export const routePaths = {
     applications: '/applicant/applications',
     applicationDetail: '/applicant/applications/:id',
     events: '/applicant/events',
+    eventDetail: '/applicant/events/:id',
     cvAnalyzer: '/applicant/cv-analyzer',
     interview: '/applicant/interview',
     profile: '/applicant/profile',
