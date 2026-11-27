@@ -9,7 +9,11 @@ import {
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { MemoryRouter } from 'react-router'
 import { authSessionStorageKey } from '../../auth/api/authApi'
-import { createInterviewSession } from '../api/interviewApi'
+import {
+  createInterviewSession,
+  listInterviewSessions,
+  submitInterviewAudioAnswer,
+} from '../api/interviewApi'
 import InterviewPage from './InterviewPage'
 
 const sessionId = 'c0d8c836-9244-4ba0-9c0e-27f451a59922'
@@ -65,7 +69,31 @@ const interviewSummary = {
   improvementTips: ['Sertakan hasil kerja yang terukur.'],
 }
 
-function answerRecord(index: number, answerText: string) {
+const measuredSpeechMetrics = {
+  durationSeconds: 12,
+  durationStatus: 'MEASURED',
+  wordCount: 30,
+  wordsPerMinute: 150,
+  speechRateStatus: 'MEASURED',
+  pauseCount: 1,
+  totalPauseSeconds: 0.8,
+  pauseStatus: 'ESTIMATED_FROM_SEGMENTS',
+  pauseSource: 'WHISPER_SEGMENT_TIMESTAMPS',
+  pauseThresholdSeconds: 0.6,
+  pitchMedianHz: 190,
+  pitchVariation: 2.4,
+  pitchVariationUnit: 'semitones',
+  voicedFrameCount: 40,
+  pitchStatus: 'MEASURED',
+  pitchFeedback: 'Gunakan variasi pitch sebagai bahan observasi intonasi latihan.',
+  deliveryFeedback: 'Kecepatan terukur sekitar 150 kata per menit.',
+}
+
+function answerRecord(
+  index: number,
+  answerText: string,
+  speechMetrics?: Record<string, unknown>,
+) {
   return {
     id: `11111111-1111-4111-8111-${String(index + 1).padStart(12, '0')}`,
     answerText,
@@ -74,6 +102,7 @@ function answerRecord(index: number, answerText: string) {
       score: 82,
       evaluatedAt: '2026-11-28T00:05:00.000Z',
       result: evaluationResult,
+      ...(speechMetrics ? { speechMetrics } : {}),
     },
   }
 }
@@ -97,11 +126,15 @@ function interviewSessionRecord(
   }
 }
 
-function answerResponse(index: number, answerText: string) {
+function answerResponse(
+  index: number,
+  answerText: string,
+  speechMetrics?: Record<string, unknown>,
+) {
   return {
     success: true,
     message: 'Jawaban berhasil dievaluasi.',
-    data: { answer: answerRecord(index, answerText) },
+    data: { answer: answerRecord(index, answerText, speechMetrics) },
   }
 }
 
@@ -133,10 +166,24 @@ function mockFetch(
     url: string,
     init?: RequestInit,
   ) => Response | Promise<Response>,
+  historyBody: unknown = {
+    success: true,
+    message: 'Riwayat wawancara berhasil diambil.',
+    data: {
+      sessions: [],
+      pagination: { page: 1, pageSize: 10, total: 0, totalPages: 0 },
+    },
+  },
+  historyStatus = 200,
 ) {
   const fetchMock = vi.fn(
-    async (input: RequestInfo | URL, init?: RequestInit) =>
-      handler(String(input), init),
+    async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.includes('/api/interview-sessions?')) {
+        return jsonResponse(historyBody, historyStatus)
+      }
+      return handler(url, init)
+    },
   )
   vi.stubGlobal('fetch', fetchMock)
   return fetchMock
@@ -189,7 +236,9 @@ describe('Interview setup API integration', () => {
     expect(await screen.findByText(questions[0]!.questionText)).toBeTruthy()
     expect(screen.getByText('Pertanyaan 1 dari 5')).toBeTruthy()
 
-    const [requestUrl, requestInit] = fetchMock.mock.calls[0]!
+    const [requestUrl, requestInit] = fetchMock.mock.calls.find(([url]) =>
+      String(url).endsWith('/api/interview-sessions'),
+    )!
     expect(String(requestUrl)).toContain('/api/interview-sessions')
     expect(requestInit?.method).toBe('POST')
     expect(requestInit?.body).toBe(
@@ -215,7 +264,10 @@ describe('Interview setup API integration', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Mulai Simulasi' }))
 
     expect(await screen.findByText(questions[0]!.questionText)).toBeTruthy()
-    expect(fetchMock.mock.calls[0]?.[1]?.body).toBe(
+    const createCall = fetchMock.mock.calls.find(([url]) =>
+      String(url).endsWith('/api/interview-sessions'),
+    )
+    expect(createCall?.[1]?.body).toBe(
       JSON.stringify({ jobTitle: 'UX Researcher' }),
     )
   })
@@ -501,11 +553,159 @@ describe('Interview answers and evaluation API integration', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Ya, Selesaikan Sesi' }))
     expect(await screen.findByText('Hasil dari backend')).toBeTruthy()
     expect(screen.getByText('82.4/100')).toBeTruthy()
+    expect(screen.queryByText('Metrik penyampaian')).toBeNull()
     expect(screen.getAllByText('Sertakan hasil kerja yang terukur.').length).toBeGreaterThan(0)
     expect(answerBodies).toHaveLength(5)
     expect(completeRequests).toBe(2)
     expect(fetchMock.mock.calls.filter(([url]) =>
       String(url).endsWith(`/api/interview-sessions/${sessionId}/complete`),
     )).toHaveLength(2)
+  })
+})
+
+describe('Interview history and audio API integration', () => {
+  it('shows a real API error instead of an empty-history success state', async () => {
+    setAuthenticatedSession()
+    const fetchMock = mockFetch(
+      () => {
+        throw new Error('Unexpected non-history request.')
+      },
+      {
+        success: false,
+        message: 'Riwayat wawancara sedang tidak tersedia.',
+        errors: null,
+      },
+      503,
+    )
+
+    renderPage()
+
+    expect(
+      await screen.findByText('Riwayat wawancara sedang tidak tersedia.'),
+    ).toBeTruthy()
+    expect(screen.queryByText('Belum ada sesi latihan.')).toBeNull()
+    expect(fetchMock.mock.calls[0]?.[1]?.method).toBe('GET')
+  })
+
+  it('loads real history, fetches selected details, and shows only returned voice metrics', async () => {
+    setAuthenticatedSession()
+    const completedRecord = {
+      ...interviewSessionRecord(
+        questions.map((_question, index) => `Jawaban tersimpan ${index + 1}.`),
+        'COMPLETED',
+        interviewSummary,
+      ),
+      questions: questions.map((question, index) => ({
+        ...question,
+        answer: answerRecord(
+          index,
+          `Transkrip tersimpan ${index + 1}.`,
+          index === 0 ? measuredSpeechMetrics : undefined,
+        ),
+      })),
+    }
+    const historyBody = {
+      success: true,
+      message: 'Riwayat wawancara berhasil diambil.',
+      data: {
+        sessions: [completedRecord],
+        pagination: { page: 1, pageSize: 10, total: 1, totalPages: 1 },
+      },
+    }
+    const fetchMock = mockFetch((url) => {
+      if (url.endsWith(`/api/interview-sessions/${sessionId}`)) {
+        return jsonResponse(sessionDetailResponse(completedRecord), 200)
+      }
+      throw new Error(`Unexpected request: ${url}`)
+    }, historyBody)
+
+    renderPage()
+    fireEvent.click(await screen.findByRole('button', { name: /Lihat semua sesi/ }))
+
+    const historyRow = await screen.findByRole('row', {
+      name: /Product Designer/,
+    })
+    expect(historyRow.textContent?.replace(/\s/g, '')).toContain('5/5')
+    fireEvent.click(screen.getByRole('button', { name: 'Ringkasan' }))
+    expect(await screen.findByText('82.4/100')).toBeTruthy()
+    expect(
+      fetchMock.mock.calls.some(([url]) =>
+        String(url).endsWith(`/api/interview-sessions/${sessionId}`),
+      ),
+    ).toBe(true)
+
+    fireEvent.click(screen.getByText('Pertanyaan 1'))
+    expect(await screen.findByText('Transkrip Whisper')).toBeTruthy()
+    expect(screen.getByText('190 Hz')).toBeTruthy()
+    expect(
+      screen.getByText(
+        /estimasi timestamp segmen Whisper, bukan deteksi hening akustik/,
+      ),
+    ).toBeTruthy()
+  })
+
+  it('requests the selected history page and validates its pagination response', async () => {
+    setAuthenticatedSession()
+    const historyBody = {
+      success: true,
+      message: 'Riwayat wawancara berhasil diambil.',
+      data: {
+        sessions: [],
+        pagination: { page: 2, pageSize: 7, total: 12, totalPages: 2 },
+      },
+    }
+    const fetchMock = mockFetch(() => {
+      throw new Error('The history request should be handled by the test response.')
+    }, historyBody)
+
+    const result = await listInterviewSessions(2, 7)
+
+    expect(result.pagination).toEqual({
+      page: 2,
+      pageSize: 7,
+      total: 12,
+      totalPages: 2,
+    })
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain(
+      '/api/interview-sessions?page=2&pageSize=7',
+    )
+    expect(fetchMock.mock.calls[0]?.[1]?.method).toBe('GET')
+  })
+
+  it('sends WAV PCM as multipart audio and accepts the backend transcription metrics', async () => {
+    setAuthenticatedSession()
+    const fetchMock = mockFetch((url) => {
+      if (url.endsWith(`/api/interview-sessions/${sessionId}/audio-answers`)) {
+        return jsonResponse(
+          answerResponse(0, 'Transkrip Whisper dari rekaman.', measuredSpeechMetrics),
+          200,
+        )
+      }
+      throw new Error(`Unexpected request: ${url}`)
+    })
+    const audio = new File([new Uint8Array([82, 73, 70, 70])], 'answer.wav', {
+      type: 'audio/wav',
+    })
+
+    const answer = await submitInterviewAudioAnswer(
+      sessionId,
+      questions[0]!.id,
+      audio,
+    )
+
+    const [requestUrl, requestInit] = fetchMock.mock.calls[0]!
+    const formData = requestInit?.body as FormData
+    expect(String(requestUrl)).toContain(
+      `/api/interview-sessions/${sessionId}/audio-answers`,
+    )
+    expect(requestInit?.method).toBe('POST')
+    expect(formData.get('questionId')).toBe(questions[0]!.id)
+    expect(formData.get('audio')).toBeInstanceOf(File)
+    expect(new Headers(requestInit?.headers).get('Authorization')).toBe(
+      'Bearer test-access-token',
+    )
+    expect(new Headers(requestInit?.headers).has('Content-Type')).toBe(false)
+    expect(answer.answerText).toBe('Transkrip Whisper dari rekaman.')
+    expect(answer.evaluation.speechMetrics?.pitchStatus).toBe('MEASURED')
   })
 })

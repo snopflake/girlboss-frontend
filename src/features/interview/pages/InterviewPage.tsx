@@ -1,12 +1,15 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { AuthApiError } from '../../auth/api/authApi'
 import {
   completeInterviewSession,
   createInterviewSession,
   getInterviewSession,
+  listInterviewSessions,
   submitInterviewAnswer,
+  submitInterviewAudioAnswer,
   type EvaluatedInterviewAnswerRecord,
   type InterviewEvaluationRecord,
+  type InterviewSessionListResult,
   type InterviewSessionRecord,
 } from '../api/interviewApi'
 import { InterviewHistoryView } from '../components/InterviewHistoryView'
@@ -25,8 +28,10 @@ import type {
   InterviewScreen,
   InterviewSession,
   InterviewSource,
+  InterviewAnswerMode,
   InterviewStage,
   WorkContext,
+  InterviewSessionContext,
 } from '../types/interview'
 import styles from './InterviewPage.module.css'
 
@@ -36,25 +41,14 @@ const initialManualFields: ManualContextFields = {
   description: '',
 }
 
-function cloneSession(session: InterviewSession): InterviewSession {
-  return {
-    ...session,
-    context: { ...session.context },
-    questions: session.questions.map((question) => ({
-      ...question,
-      feedback: question.feedback ? { ...question.feedback } : undefined,
-    })),
-  }
-}
-
 function isExperienceLevel(value: string): value is ExperienceLevel {
   return experienceLevels.some((level) => level.value === value)
 }
 
 function toInterviewSession(
   record: InterviewSessionRecord,
-  context: WorkContext,
-  elapsedSeconds = 0,
+  context: InterviewSessionContext | WorkContext = { title: record.jobTitle },
+  elapsedSeconds: number | null = 0,
   currentQuestionIndex = 0,
 ): InterviewSession {
   return {
@@ -68,8 +62,13 @@ function toInterviewSession(
       id: question.id,
       category: 'Pertanyaan wawancara',
       prompt: question.questionText,
-      status: question.answer?.evaluation ? 'ANSWERED' : 'UNANSWERED',
+      status: question.answer ? 'ANSWERED' : 'UNANSWERED',
       answer: question.answer?.answerText ?? '',
+      answerSource: question.answer?.evaluation?.speechMetrics
+        ? 'AUDIO'
+        : question.answer
+          ? 'TEXT'
+          : undefined,
       feedback: question.answer?.evaluation
         ? toInterviewFeedback(question.answer.evaluation)
         : undefined,
@@ -94,6 +93,7 @@ function toInterviewFeedback(evaluation: InterviewEvaluationRecord) {
     overallFeedback: result.overallFeedback,
     recommendation: result.improvementTips.join(' '),
     score: evaluation.score,
+    speechMetrics: evaluation.speechMetrics,
   }
 }
 
@@ -110,6 +110,7 @@ function applyAnswerToSession(
             ...question,
             answer: answer.answerText,
             status: 'ANSWERED',
+            answerSource: answer.evaluation.speechMetrics ? 'AUDIO' : 'TEXT',
             feedback: toInterviewFeedback(answer.evaluation),
           }
         : question,
@@ -133,7 +134,20 @@ export default function InterviewPage() {
   const [manualFields, setManualFields] =
     useState<ManualContextFields>(initialManualFields)
   const [sessions, setSessions] = useState<InterviewSession[]>([])
+  const [historySessions, setHistorySessions] = useState<InterviewSession[]>([])
+  const [historyPagination, setHistoryPagination] =
+    useState<InterviewSessionListResult['pagination'] | null>(null)
+  const [historyPage, setHistoryPage] = useState(1)
+  const [historyRefreshKey, setHistoryRefreshKey] = useState(0)
+  const [isHistoryLoading, setIsHistoryLoading] = useState(true)
+  const [historyError, setHistoryError] = useState('')
+  const [detailError, setDetailError] = useState('')
+  const [loadingSessionId, setLoadingSessionId] = useState<string | null>(null)
+  const [lastSelectedSession, setLastSelectedSession] =
+    useState<InterviewSession | null>(null)
   const [session, setSession] = useState<InterviewSession | null>(null)
+  const [answerMode, setAnswerMode] = useState<InterviewAnswerMode>('TEXT')
+  const [pendingAudioFile, setPendingAudioFile] = useState<File | null>(null)
   const [stage, setStage] = useState<InterviewStage>('answering')
   const [creationError, setCreationError] = useState('')
   const [creationTitle, setCreationTitle] = useState('')
@@ -150,6 +164,59 @@ export default function InterviewPage() {
   const elapsedRef = useRef(0)
   const submissionInProgress = useRef(false)
   const completionInProgress = useRef(false)
+
+  const refreshHistory = useCallback(() => {
+    setIsHistoryLoading(true)
+    setHistoryError('')
+    setHistoryPage(1)
+    setHistoryRefreshKey((key) => key + 1)
+  }, [])
+
+  useEffect(() => {
+    let active = true
+    void listInterviewSessions(historyPage, 10)
+      .then((result) => {
+        if (!active) return
+        const mappedSessions = result.sessions.map((record) =>
+          toInterviewSession(record, { title: record.jobTitle }, null),
+        )
+        setHistorySessions(mappedSessions)
+        setHistoryPagination(result.pagination)
+        if (historyPage === 1) {
+          setSessions((current) => {
+            const serverIds = new Set(mappedSessions.map((item) => item.id))
+            const localSessions = current.filter(
+              (item) => !serverIds.has(item.id),
+            )
+            return [...mappedSessions, ...localSessions].slice(0, 10)
+          })
+        }
+      })
+      .catch((error: unknown) => {
+        if (active) setHistoryError(getApiErrorMessage(error))
+      })
+      .finally(() => {
+        if (active) setIsHistoryLoading(false)
+      })
+    return () => {
+      active = false
+    }
+  }, [historyPage, historyRefreshKey])
+
+  function retryHistory() {
+    refreshHistory()
+  }
+
+  function openHistory() {
+    refreshHistory()
+    setScreen('history')
+  }
+
+  function changeHistoryPage(page: number) {
+    setIsHistoryLoading(true)
+    setHistoryError('')
+    setHistoryPage(page)
+  }
 
   const currentQuestion =
     session?.questions[session.currentQuestionIndex] ?? null
@@ -233,7 +300,10 @@ export default function InterviewPage() {
       const nextSession = toInterviewSession(created, context)
       elapsedRef.current = 0
       setElapsedSeconds(0)
+      setAnswerMode('TEXT')
+      setPendingAudioFile(null)
       saveSession(nextSession)
+      refreshHistory()
       setStage('answering')
       setScreen('session')
     } catch (error) {
@@ -274,11 +344,31 @@ export default function InterviewPage() {
     }))
   }
 
-  async function sendCurrentAnswer(reconcileBeforeRetry = false) {
+  const handleAudioFileChange = useCallback((file: File | null) => {
+    setPendingAudioFile(file)
+  }, [])
+
+  function changeAnswerMode(mode: InterviewAnswerMode) {
+    setAnswerMode(mode)
+    if (mode === 'TEXT') setPendingAudioFile(null)
+  }
+
+  async function sendCurrentAnswer(
+    reconcileBeforeRetry = false,
+    requestedMode: InterviewAnswerMode = answerMode,
+    audioOverride?: File,
+  ) {
     const current = sessionRef.current
     const question = current?.questions[current.currentQuestionIndex]
     const answerText = question?.answer.trim()
-    if (!current || !question || !answerText || submissionInProgress.current) {
+    const audioFile = audioOverride ?? pendingAudioFile
+    if (
+      !current ||
+      !question ||
+      submissionInProgress.current ||
+      (requestedMode === 'TEXT' && !answerText) ||
+      (requestedMode === 'AUDIO' && !audioFile)
+    ) {
       return
     }
 
@@ -301,6 +391,7 @@ export default function InterviewPage() {
             current.currentQuestionIndex,
           )
           saveSession(completed)
+          refreshHistory()
           setIsEndDialogOpen(false)
           setScreen('summary')
           return
@@ -320,6 +411,8 @@ export default function InterviewPage() {
               current.currentQuestionIndex,
             ),
           )
+          setPendingAudioFile(null)
+          refreshHistory()
           setStage('feedback')
           return
         }
@@ -331,13 +424,18 @@ export default function InterviewPage() {
         }
       }
 
-      const answer = await submitInterviewAnswer(
-        current.id,
-        question.id,
-        answerText,
-      )
+      const answer =
+        requestedMode === 'AUDIO'
+          ? await submitInterviewAudioAnswer(
+              current.id,
+              question.id,
+              audioFile!,
+            )
+          : await submitInterviewAnswer(current.id, question.id, answerText!)
       const latest = sessionRef.current ?? current
       saveSession(applyAnswerToSession(latest, question.id, answer))
+      if (requestedMode === 'AUDIO') setPendingAudioFile(null)
+      refreshHistory()
       setStage('feedback')
     } catch (error) {
       setEvaluationError(getApiErrorMessage(error))
@@ -349,7 +447,15 @@ export default function InterviewPage() {
   }
 
   function submitAnswer() {
-    void sendCurrentAnswer()
+    setAnswerMode('TEXT')
+    setPendingAudioFile(null)
+    void sendCurrentAnswer(false, 'TEXT')
+  }
+
+  function submitAudioAnswer(file: File) {
+    setAnswerMode('AUDIO')
+    setPendingAudioFile(file)
+    void sendCurrentAnswer(false, 'AUDIO', file)
   }
 
   function retryEvaluation() {
@@ -363,11 +469,24 @@ export default function InterviewPage() {
       setStage('complete')
       return
     }
-    saveSession({
-      ...current,
-      currentQuestionIndex: current.currentQuestionIndex + 1,
-    })
-    setStage('answering')
+    const nextIndex = current.currentQuestionIndex + 1
+    const nextQuestion = current.questions[nextIndex]
+    saveSession({ ...current, currentQuestionIndex: nextIndex })
+    setPendingAudioFile(null)
+    if (nextQuestion?.feedback) {
+      setAnswerMode(nextQuestion.answerSource === 'AUDIO' ? 'AUDIO' : 'TEXT')
+      setEvaluationError('')
+      setStage('feedback')
+    } else if (nextQuestion?.status === 'ANSWERED') {
+      setAnswerMode(nextQuestion.answerSource === 'AUDIO' ? 'AUDIO' : 'TEXT')
+      setEvaluationError(
+        'Jawaban tersimpan, tetapi evaluasinya belum tersedia. Periksa kembali status sesi sebelum mengirim ulang.',
+      )
+      setStage('evaluation-error')
+    } else {
+      setEvaluationError('')
+      setStage('answering')
+    }
   }
 
   function skipQuestion() {
@@ -388,6 +507,8 @@ export default function InterviewPage() {
         ? current.currentQuestionIndex
         : current.currentQuestionIndex + 1,
     })
+    setPendingAudioFile(null)
+    setAnswerMode('TEXT')
     setStage(isLast ? 'complete' : 'answering')
   }
 
@@ -399,6 +520,7 @@ export default function InterviewPage() {
     )
     if (index < 0) return
     saveSession({ ...current, currentQuestionIndex: index })
+    setPendingAudioFile(null)
     setStage('answering')
   }
 
@@ -433,6 +555,7 @@ export default function InterviewPage() {
         current.questions.length - 1,
       )
       saveSession({ ...nextSession, summary: completed.summary })
+      refreshHistory()
       setIsEndDialogOpen(false)
       setScreen('summary')
     } catch (error) {
@@ -450,39 +573,61 @@ export default function InterviewPage() {
     setSelectedJobId(mockJobs[0]?.id ?? null)
     setSearchTerm('')
     setSource('JOB')
+    setAnswerMode('TEXT')
+    setPendingAudioFile(null)
     setIsEndDialogOpen(false)
     setScreen('setup')
   }
 
-  function openSessionSummary(nextSession: InterviewSession) {
-    const copy = cloneSession(nextSession)
-    saveSession(copy)
-    elapsedRef.current = copy.elapsedSeconds
-    setElapsedSeconds(copy.elapsedSeconds)
-    setScreen('summary')
+  async function openSessionDetails(sessionRow: InterviewSession) {
+    setLastSelectedSession(sessionRow)
+    setLoadingSessionId(sessionRow.id)
+    setDetailError('')
+    try {
+      const record = await getInterviewSession(sessionRow.id)
+      const savedContext =
+        sessionRef.current?.id === record.id
+          ? sessionRef.current.context
+          : sessions.find((item) => item.id === record.id)?.context
+      const nextSession = toInterviewSession(
+        record,
+        savedContext ?? { title: record.jobTitle },
+        record.status === 'IN_PROGRESS' ? 0 : null,
+        0,
+      )
+      saveSession(nextSession)
+      setPendingAudioFile(null)
+      setAnswerMode('TEXT')
+      setElapsedSeconds(0)
+      elapsedRef.current = 0
+
+      if (record.status === 'IN_PROGRESS') {
+        const firstQuestion = nextSession.questions[0]
+        if (firstQuestion?.feedback) {
+          setEvaluationError('')
+          setStage('feedback')
+        } else if (firstQuestion?.status === 'ANSWERED') {
+          setEvaluationError(
+            'Jawaban tersimpan, tetapi evaluasinya belum tersedia. Periksa kembali status sesi sebelum mengirim ulang.',
+          )
+          setStage('evaluation-error')
+        } else {
+          setEvaluationError('')
+          setStage('answering')
+        }
+        setScreen('session')
+      } else {
+        setScreen('summary')
+      }
+    } catch (error) {
+      setDetailError(getApiErrorMessage(error))
+    } finally {
+      setLoadingSessionId(null)
+    }
   }
 
-  function resumeSession(nextSession: InterviewSession) {
-    const copy = cloneSession(nextSession)
-    saveSession(copy)
-    elapsedRef.current = copy.elapsedSeconds
-    setElapsedSeconds(copy.elapsedSeconds)
-    const activeQuestion = copy.questions[copy.currentQuestionIndex]
-    setStage(
-      activeQuestion?.feedback
-        ? 'feedback'
-        : activeQuestion?.status === 'ANSWERED'
-          ? 'evaluation-error'
-          : 'answering',
-    )
-    setScreen('session')
-  }
-
-  function clearDemoHistory() {
-    setSessions([])
-    sessionRef.current = null
-    setSession(null)
-    setScreen('history')
+  function retrySessionDetails() {
+    if (lastSelectedSession) void openSessionDetails(lastSelectedSession)
   }
 
   const pageTitle =
@@ -496,7 +641,7 @@ export default function InterviewPage() {
             <h1 id="interview-page-title">{pageTitle}</h1>
             <p>
               {screen === 'history'
-                ? 'Tinjau dan lanjutkan latihan wawancara berbasis teks.'
+                ? 'Tinjau, lanjutkan, dan pelajari hasil sesi wawancara.'
                 : 'Latih jawaban wawancara dengan konteks pekerjaan yang kamu pilih.'}
             </p>
           </div>
@@ -522,15 +667,19 @@ export default function InterviewPage() {
 
       {screen === 'session' && session && (
         <InterviewSessionView
+          answerMode={answerMode}
           elapsedSeconds={elapsedSeconds}
           isSubmitting={isSubmitting}
           onAnswerChange={changeAnswer}
+          onAnswerModeChange={changeAnswerMode}
+          onAudioFileChange={handleAudioFileChange}
           onEnd={endSession}
           onNext={moveToNextQuestion}
           onReturnToUnanswered={returnToUnansweredQuestion}
           onRetryEvaluation={retryEvaluation}
           onSkip={skipQuestion}
           onSubmit={submitAnswer}
+          onSubmitAudio={submitAudioAnswer}
           question={currentQuestion}
           questionIndex={session.currentQuestionIndex}
           session={session}
@@ -577,29 +726,41 @@ export default function InterviewPage() {
             {screen === 'summary' && session && (
               <InterviewSummaryView
                 onNewSession={beginNewSession}
-                onOpenHistory={() => setScreen('history')}
+                onOpenHistory={openHistory}
                 session={session}
               />
             )}
 
             {screen === 'history' && (
               <InterviewHistoryView
-                onClearDemoHistory={clearDemoHistory}
+                detailErrorMessage={detailError}
+                errorMessage={historyError}
+                isLoading={isHistoryLoading}
+                loadingSessionId={loadingSessionId}
                 onNewSession={beginNewSession}
-                onOpenSession={openSessionSummary}
-                onResumeSession={resumeSession}
+                onOpenSession={(selected) => void openSessionDetails(selected)}
+                onPageChange={changeHistoryPage}
+                onRetryDetail={retrySessionDetails}
+                onRetryList={retryHistory}
                 onSearchChange={setHistorySearch}
                 onStatusChange={setHistoryFilter}
+                pagination={historyPagination}
                 searchTerm={historySearch}
-                sessions={sessions}
+                sessions={historySessions}
                 statusFilter={historyFilter}
               />
             )}
           </div>
 
           <InterviewSidebar
-            onOpenHistory={() => setScreen('history')}
-            onResume={resumeSession}
+            detailErrorMessage={detailError}
+            errorMessage={historyError}
+            isLoading={isHistoryLoading}
+            loadingSessionId={loadingSessionId}
+            onOpenHistory={openHistory}
+            onRetry={retryHistory}
+            onRetryDetail={retrySessionDetails}
+            onSelectSession={(selected) => void openSessionDetails(selected)}
             sessions={sessions}
           />
         </div>

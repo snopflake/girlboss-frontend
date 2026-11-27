@@ -5,12 +5,14 @@ import {
   Clock3,
   LoaderCircle,
   ListChecks,
+  Mic,
   Send,
   SkipForward,
   X,
 } from 'lucide-react'
 import { Badge, Button, Card, Textarea } from '../../../design-system/components'
 import type {
+  InterviewAnswerMode,
   InterviewQuestion,
   InterviewSession,
   InterviewStage,
@@ -20,6 +22,8 @@ import {
   getAnsweredCount,
 } from '../utils/interviewFormatters'
 import styles from '../pages/InterviewPage.module.css'
+import { InterviewAudioAnswer } from './InterviewAudioAnswer'
+import { SpeechMetricsView } from './SpeechMetricsView'
 
 interface InterviewSessionViewProps {
   session: InterviewSession
@@ -29,7 +33,11 @@ interface InterviewSessionViewProps {
   elapsedSeconds: number
   isSubmitting: boolean
   submissionError: string
+  answerMode: InterviewAnswerMode
   onAnswerChange(value: string): void
+  onAnswerModeChange(mode: InterviewAnswerMode): void
+  onAudioFileChange(file: File | null): void
+  onSubmitAudio(file: File): void
   onSubmit(): void
   onSkip(): void
   onNext(): void
@@ -53,6 +61,10 @@ export function InterviewSessionView({
   isSubmitting,
   submissionError,
   onAnswerChange,
+  answerMode,
+  onAnswerModeChange,
+  onAudioFileChange,
+  onSubmitAudio,
   onSubmit,
   onSkip,
   onNext,
@@ -68,11 +80,15 @@ export function InterviewSessionView({
     <div className={styles.interviewScreen}>
       <header className={styles.sessionHeader}>
         <div className={styles.sessionTitle}>
-          <span className={styles.eyebrow}>Sesi latihan teks</span>
+          <span className={styles.eyebrow}>Sesi latihan</span>
           <h2>{session.context.title}</h2>
-          <p>
-            {session.context.company} · {session.context.employmentType}
-          </p>
+          {(session.context.company || session.context.employmentType) && (
+            <p>
+              {[session.context.company, session.context.employmentType]
+                .filter(Boolean)
+                .join(' · ')}
+            </p>
+          )}
         </div>
         <div className={styles.sessionHeaderActions}>
           <Badge variant="info">Berlangsung</Badge>
@@ -161,72 +177,103 @@ export function InterviewSessionView({
             <Card className={styles.answerCard}>
               <div className={styles.sectionTitle}>
                 <h3>Jawaban Kamu</h3>
-                <span>Maksimum 2.000 karakter</span>
-              </div>
-              <label className={styles.visuallyHidden} htmlFor="interview-answer">
-                Jawaban Kamu
-              </label>
-              <Textarea
-                id="interview-answer"
-                maxLength={2000}
-                disabled={isSubmitting}
-                onChange={(event) => onAnswerChange(event.currentTarget.value)}
-                placeholder="Tuliskan jawabanmu di sini..."
-                rows={7}
-                value={question.answer}
-              />
-              <div className={styles.answerMeta}>
-                <span className={styles.draftNote}>
-                  Draf tersimpan sementara selama sesi ini saja.
-                </span>
-                <span
-                  aria-live="polite"
-                  className={
-                    question.answer.length >= 1900 ? styles.counterNearLimit : ''
-                  }
-                >
-                  {question.answer.length}/2000
+                <span>
+                  {answerMode === 'TEXT' ? 'Maksimum 2.000 karakter' : 'Jawaban audio WAV PCM'}
                 </span>
               </div>
-              <Card className={styles.starGuide} padding="compact">
-                <div className={styles.sectionTitle}>
-                  <h4>Panduan metode STAR</h4>
-                  <span>Susun jawaban lebih terarah</span>
-                </div>
-                <div className={styles.starItems}>
-                  <span>
-                    <strong>S</strong>ituasi
-                  </span>
-                  <span>
-                    <strong>T</strong>ugas
-                  </span>
-                  <span>
-                    <strong>A</strong>ksi
-                  </span>
-                  <span>
-                    <strong>R</strong>esult
-                  </span>
-                </div>
-              </Card>
-              <div className={styles.answerActions}>
-                <Button
-                  disabled={!question.answer.trim() || isSubmitting}
-                  leadingIcon={<Send size={16} />}
-                  onClick={onSubmit}
-                  type="button"
-                >
-                  Kirim Jawaban
-                </Button>
-                <Button
+              <div className={styles.answerModeSwitch} role="group" aria-label="Pilih cara menjawab">
+                <button
+                  aria-pressed={answerMode === 'TEXT'}
+                  className={answerMode === 'TEXT' ? styles.answerModeSelected : ''}
                   disabled={isSubmitting}
-                  leadingIcon={<SkipForward size={16} />}
-                  onClick={onSkip}
+                  onClick={() => onAnswerModeChange('TEXT')}
                   type="button"
-                  variant="outline"
                 >
-                  Lewati Pertanyaan
-                </Button>
+                  Jawaban Teks
+                </button>
+                <button
+                  aria-pressed={answerMode === 'AUDIO'}
+                  className={answerMode === 'AUDIO' ? styles.answerModeSelected : ''}
+                  disabled={isSubmitting}
+                  onClick={() => onAnswerModeChange('AUDIO')}
+                  type="button"
+                >
+                  <Mic size={15} aria-hidden="true" />
+                  Mikrofon
+                </button>
               </div>
+              {answerMode === 'TEXT' ? (
+                <>
+                  <label className={styles.visuallyHidden} htmlFor="interview-answer">
+                    Jawaban Kamu
+                  </label>
+                  <Textarea
+                    id="interview-answer"
+                    maxLength={2000}
+                    disabled={isSubmitting}
+                    onChange={(event) => onAnswerChange(event.currentTarget.value)}
+                    placeholder="Tuliskan jawabanmu di sini..."
+                    rows={7}
+                    value={question.answer}
+                  />
+                  <div className={styles.answerMeta}>
+                    <span className={styles.draftNote}>
+                      Draf tersimpan sementara selama sesi ini saja.
+                    </span>
+                    <span
+                      aria-live="polite"
+                      className={
+                        question.answer.length >= 1900 ? styles.counterNearLimit : ''
+                      }
+                    >
+                      {question.answer.length}/2000
+                    </span>
+                  </div>
+                  <Card className={styles.starGuide} padding="compact">
+                    <div className={styles.sectionTitle}>
+                      <h4>Panduan metode STAR</h4>
+                      <span>Susun jawaban lebih terarah</span>
+                    </div>
+                    <div className={styles.starItems}>
+                      <span><strong>S</strong>ituasi</span>
+                      <span><strong>T</strong>ugas</span>
+                      <span><strong>A</strong>ksi</span>
+                      <span><strong>R</strong>esult</span>
+                    </div>
+                  </Card>
+                  <div className={styles.answerActions}>
+                    <Button
+                      disabled={!question.answer.trim() || isSubmitting}
+                      leadingIcon={<Send size={16} />}
+                      onClick={onSubmit}
+                      type="button"
+                    >
+                      Kirim Jawaban
+                    </Button>
+                    <Button
+                      disabled={isSubmitting}
+                      leadingIcon={<SkipForward size={16} />}
+                      onClick={onSkip}
+                      type="button"
+                      variant="outline"
+                    >
+                      Lewati Pertanyaan
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <div className={styles.answerActions}>
+                  <Button
+                    disabled={isSubmitting}
+                    leadingIcon={<SkipForward size={16} />}
+                    onClick={onSkip}
+                    type="button"
+                    variant="outline"
+                  >
+                    Lewati Pertanyaan
+                  </Button>
+                </div>
+              )}
               {stage === 'evaluating' && (
                 <div className={styles.evaluationLoading} role="status">
                   <LoaderCircle
@@ -234,19 +281,40 @@ export function InterviewSessionView({
                     size={18}
                     aria-hidden="true"
                   />
-                  Gemini sedang mengevaluasi jawaban...
+                  {answerMode === 'AUDIO'
+                    ? 'Audio sedang ditranskripsikan dan dievaluasi...'
+                    : 'Gemini sedang mengevaluasi jawaban...'}
                 </div>
               )}
             </Card>
           )}
 
           {question &&
+            answerMode === 'AUDIO' &&
+            (stage === 'answering' ||
+              stage === 'evaluating' ||
+              stage === 'evaluation-error') && (
+              <InterviewAudioAnswer
+                isRetry={stage === 'evaluation-error'}
+                isSubmitting={isSubmitting}
+                key={question.id}
+                onFileChange={onAudioFileChange}
+                onRetry={onRetryEvaluation}
+                onSubmit={onSubmitAudio}
+                submissionError={
+                  stage === 'evaluation-error' ? submissionError : ''
+                }
+              />
+            )}
+
+          {question &&
             stage !== 'answering' &&
             stage !== 'evaluating' &&
-            stage !== 'complete' && (
+            stage !== 'complete' &&
+            !(stage === 'evaluation-error' && answerMode === 'AUDIO') && (
             <Card className={styles.submittedAnswerCard}>
               <div className={styles.submittedHeading}>
-                <h3>Jawaban Kamu</h3>
+                <h3>{question.answerSource === 'AUDIO' ? 'Transkrip Whisper' : 'Jawaban Kamu'}</h3>
                 <Badge variant={stage === 'evaluation-error' ? 'danger' : 'success'}>
                   {stage === 'evaluation-error'
                     ? 'Evaluasi gagal'
@@ -326,6 +394,11 @@ export function InterviewSessionView({
                     <strong>Saran Perbaikan</strong>
                     <p>{question.feedback.recommendation}</p>
                   </div>
+                  {question.feedback.speechMetrics && (
+                    <SpeechMetricsView
+                      metrics={question.feedback.speechMetrics}
+                    />
+                  )}
                   <div className={styles.answerActions}>
                     <Button onClick={onNext} type="button">
                       {isLastQuestion ? 'Selesaikan Pertanyaan' : 'Pertanyaan Berikutnya'}

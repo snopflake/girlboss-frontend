@@ -15,6 +15,7 @@ import {
   getAnsweredCount,
 } from '../utils/interviewFormatters'
 import styles from '../pages/InterviewPage.module.css'
+import { SpeechMetricsView } from './SpeechMetricsView'
 
 interface InterviewSummaryViewProps {
   session: InterviewSession
@@ -47,7 +48,9 @@ export function InterviewSummaryView({
               : 'Sesi Latihan Selesai'}
           </h2>
           <p>
-            {session.context.title} · {session.context.company}
+            {[session.context.title, session.context.company]
+              .filter(Boolean)
+              .join(' · ')}
           </p>
           <span>
             <CalendarDays size={15} aria-hidden="true" />
@@ -64,7 +67,9 @@ export function InterviewSummaryView({
           <span>Durasi sesi</span>
           <strong>
             <Clock3 size={17} aria-hidden="true" />
-            {formatInterviewDuration(session.elapsedSeconds)}
+            {session.elapsedSeconds === null
+              ? 'Tidak tersedia'
+              : formatInterviewDuration(session.elapsedSeconds)}
           </strong>
         </Card>
         <Card className={styles.summaryStat}>
@@ -153,7 +158,7 @@ export function InterviewSummaryView({
                 </Badge>
               </summary>
               <div className={styles.accordionContent}>
-                <h4>Jawaban Kamu</h4>
+                <h4>{question.answerSource === 'AUDIO' ? 'Transkrip Whisper' : 'Jawaban Kamu'}</h4>
                 <p>{question.answer.trim() || 'Tidak ada jawaban untuk pertanyaan ini.'}</p>
                 {question.feedback ? (
                   <>
@@ -192,6 +197,11 @@ export function InterviewSummaryView({
                       <p className={styles.optionalScore}>
                         Skor: {question.feedback.score}/100
                       </p>
+                    )}
+                    {question.feedback.speechMetrics && (
+                      <SpeechMetricsView
+                        metrics={question.feedback.speechMetrics}
+                      />
                     )}
                   </>
                 ) : (

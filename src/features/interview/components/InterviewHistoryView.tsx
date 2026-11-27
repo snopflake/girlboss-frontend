@@ -3,7 +3,6 @@ import {
   ClipboardList,
   Play,
   Search,
-  Trash2,
 } from 'lucide-react'
 import { Badge, Button, Card, Input, Select } from '../../../design-system/components'
 import type {
@@ -24,12 +23,23 @@ interface InterviewHistoryViewProps {
   sessions: InterviewSession[]
   searchTerm: string
   statusFilter: StatusFilter
+  isLoading: boolean
+  errorMessage: string
+  detailErrorMessage: string
+  loadingSessionId: string | null
+  pagination: {
+    page: number
+    pageSize: number
+    total: number
+    totalPages: number
+  } | null
   onSearchChange(value: string): void
   onStatusChange(value: StatusFilter): void
   onNewSession(): void
   onOpenSession(session: InterviewSession): void
-  onResumeSession(session: InterviewSession): void
-  onClearDemoHistory(): void
+  onRetryList(): void
+  onRetryDetail(): void
+  onPageChange(page: number): void
 }
 
 function statusVariant(status: InterviewSessionStatus) {
@@ -53,17 +63,23 @@ export function InterviewHistoryView({
   sessions,
   searchTerm,
   statusFilter,
+  isLoading,
+  errorMessage,
+  detailErrorMessage,
+  loadingSessionId,
+  pagination,
   onSearchChange,
   onStatusChange,
   onNewSession,
   onOpenSession,
-  onResumeSession,
-  onClearDemoHistory,
+  onRetryList,
+  onRetryDetail,
+  onPageChange,
 }: InterviewHistoryViewProps) {
   const normalizedSearch = searchTerm.trim().toLocaleLowerCase('id-ID')
   const filteredSessions = sessions.filter((session) => {
     const matchesSearch =
-      `${session.context.title} ${session.context.company}`
+      `${session.context.title} ${session.context.company ?? ''}`
         .toLocaleLowerCase('id-ID')
         .includes(normalizedSearch)
     return (
@@ -78,25 +94,52 @@ export function InterviewHistoryView({
         <div>
           <span className={styles.eyebrow}>Latihan wawancara</span>
           <h2>Semua Sesi Latihan</h2>
-          <p>Riwayat di halaman ini merupakan data contoh lokal.</p>
+          <p>Riwayat dan progres diambil dari sesi yang tersimpan di backend.</p>
         </div>
         <Button onClick={onNewSession} type="button">
           Mulai Sesi Baru
         </Button>
       </header>
 
-      {sessions.length === 0 ? (
+      {isLoading && (
+        <p className={styles.evaluationLoading} role="status">
+          Memuat riwayat sesi...
+        </p>
+      )}
+      {errorMessage && (
+        <div className={styles.errorMessage} role="alert">
+          {errorMessage}
+          <Button onClick={onRetryList} size="small" type="button" variant="outline">
+            Coba muat ulang
+          </Button>
+        </div>
+      )}
+      {detailErrorMessage && (
+        <div className={styles.errorMessage} role="alert">
+          {detailErrorMessage}
+          <Button
+            onClick={onRetryDetail}
+            size="small"
+            type="button"
+            variant="outline"
+          >
+            Coba buka kembali
+          </Button>
+        </div>
+      )}
+
+      {!isLoading && !errorMessage && sessions.length === 0 ? (
         <div className={styles.emptyState}>
           <span className={styles.emptyIcon} aria-hidden="true">
             <ClipboardList size={29} />
           </span>
           <h3>Belum ada sesi latihan</h3>
-          <p>Mulai sesi pertama untuk mencoba latihan wawancara berbasis teks.</p>
+          <p>Mulai sesi pertama untuk mencoba latihan wawancara berbasis teks atau suara.</p>
           <Button onClick={onNewSession} type="button">
             Mulai Sesi Pertama
           </Button>
         </div>
-      ) : (
+      ) : isLoading || errorMessage ? null : (
         <>
           <div className={styles.historyTools}>
             <label className={styles.searchField}>
@@ -128,7 +171,9 @@ export function InterviewHistoryView({
 
           {filteredSessions.length === 0 ? (
             <div className={styles.noResults} role="status">
-              Tidak ada sesi yang cocok dengan pencarian atau filter.
+              {sessions.length === 0
+                ? 'Tidak ada sesi pada halaman ini.'
+                : 'Tidak ada sesi yang cocok dengan pencarian atau filter.'}
             </div>
           ) : (
             <div className={styles.tableScroller}>
@@ -146,6 +191,7 @@ export function InterviewHistoryView({
                 <tbody>
                   {filteredSessions.map((session) => {
                     const averageScore = getAverageScore(session)
+                    const isOpening = loadingSessionId === session.id
                     return (
                       <tr key={session.id}>
                         <td>
@@ -153,7 +199,9 @@ export function InterviewHistoryView({
                             <strong title={session.context.title}>
                               {session.context.title}
                             </strong>
-                            <span>{session.context.company}</span>
+                            {session.context.company && (
+                              <span>{session.context.company}</span>
+                            )}
                           </span>
                         </td>
                         <td>{formatInterviewDate(session.startedAt)}</td>
@@ -161,7 +209,11 @@ export function InterviewHistoryView({
                           {getAnsweredCount(session.questions)}/
                           {session.questions.length} dijawab
                         </td>
-                        <td>{averageScore === null ? 'Tanpa Skor' : `${averageScore}/100`}</td>
+                        <td>
+                          {averageScore === null
+                            ? 'Tanpa Skor'
+                            : `${averageScore}/100`}
+                        </td>
                         <td>
                           <Badge variant={statusVariant(session.status)}>
                             {getSessionStatusLabel(session.status)}
@@ -169,26 +221,30 @@ export function InterviewHistoryView({
                         </td>
                         <td>
                           <div className={styles.tableActions}>
-                            {session.status === 'IN_PROGRESS' ? (
-                              <Button
-                                leadingIcon={<Play size={15} />}
-                                onClick={() => onResumeSession(session)}
-                                size="small"
-                                type="button"
-                              >
-                                Lanjutkan
-                              </Button>
-                            ) : (
-                              <Button
-                                leadingIcon={<ArrowLeft size={15} />}
-                                onClick={() => onOpenSession(session)}
-                                size="small"
-                                type="button"
-                                variant="outline"
-                              >
-                                Ringkasan
-                              </Button>
-                            )}
+                            <Button
+                              disabled={Boolean(loadingSessionId)}
+                              leadingIcon={
+                                session.status === 'IN_PROGRESS' ? (
+                                  <Play size={15} />
+                                ) : (
+                                  <ArrowLeft size={15} />
+                                )
+                              }
+                              onClick={() => onOpenSession(session)}
+                              size="small"
+                              type="button"
+                              variant={
+                                session.status === 'IN_PROGRESS'
+                                  ? 'primary'
+                                  : 'outline'
+                              }
+                            >
+                              {isOpening
+                                ? 'Memuat...'
+                                : session.status === 'IN_PROGRESS'
+                                  ? 'Lanjutkan'
+                                  : 'Ringkasan'}
+                            </Button>
                           </div>
                         </td>
                       </tr>
@@ -199,18 +255,36 @@ export function InterviewHistoryView({
             </div>
           )}
 
-          <div className={styles.demoHistoryFooter}>
-            <Badge variant="neutral">Data demo lokal</Badge>
-            <Button
-              leadingIcon={<Trash2 size={15} />}
-              onClick={onClearDemoHistory}
-              size="small"
-              type="button"
-              variant="ghost"
-            >
-              Kosongkan data demo
-            </Button>
-          </div>
+          {pagination && pagination.totalPages > 1 && (
+            <div className={styles.historyPagination}>
+              <span>
+                Halaman {pagination.page} dari {pagination.totalPages} ·{' '}
+                {pagination.total} sesi
+              </span>
+              <div>
+                <Button
+                  disabled={isLoading || pagination.page <= 1}
+                  onClick={() => onPageChange(pagination.page - 1)}
+                  size="small"
+                  type="button"
+                  variant="outline"
+                >
+                  Sebelumnya
+                </Button>
+                <Button
+                  disabled={
+                    isLoading || pagination.page >= pagination.totalPages
+                  }
+                  onClick={() => onPageChange(pagination.page + 1)}
+                  size="small"
+                  type="button"
+                  variant="outline"
+                >
+                  Berikutnya
+                </Button>
+              </div>
+            </div>
+          )}
         </>
       )}
     </Card>

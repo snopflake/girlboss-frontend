@@ -9,8 +9,14 @@ import styles from '../pages/InterviewPage.module.css'
 
 interface InterviewSidebarProps {
   sessions: InterviewSession[]
+  isLoading: boolean
+  errorMessage: string
+  detailErrorMessage: string
+  onRetry(): void
+  onRetryDetail(): void
   onOpenHistory(): void
-  onResume(session: InterviewSession): void
+  onSelectSession(session: InterviewSession): void
+  loadingSessionId: string | null
 }
 
 function statusVariant(status: InterviewSession['status']) {
@@ -21,8 +27,14 @@ function statusVariant(status: InterviewSession['status']) {
 
 export function InterviewSidebar({
   sessions,
+  isLoading,
+  errorMessage,
+  detailErrorMessage,
+  onRetry,
+  onRetryDetail,
   onOpenHistory,
-  onResume,
+  onSelectSession,
+  loadingSessionId,
 }: InterviewSidebarProps) {
   const recentSessions = sessions.slice(0, 3)
 
@@ -49,19 +61,43 @@ export function InterviewSidebar({
           </span>
           <h2>Riwayat Sesi</h2>
         </div>
-        {recentSessions.length === 0 ? (
+        {isLoading && (
+          <p className={styles.sidebarDescription} role="status">
+            Memuat riwayat...
+          </p>
+        )}
+        {errorMessage && (
+          <div className={styles.sidebarDescription} role="alert">
+            {errorMessage}
+            <Button onClick={onRetry} size="small" type="button" variant="outline">
+              Coba lagi
+            </Button>
+          </div>
+        )}
+        {detailErrorMessage && (
+          <div className={styles.sidebarDescription} role="alert">
+            {detailErrorMessage}
+            <Button
+              onClick={onRetryDetail}
+              size="small"
+              type="button"
+              variant="outline"
+            >
+              Coba buka kembali
+            </Button>
+          </div>
+        )}
+        {!isLoading && !errorMessage && recentSessions.length === 0 ? (
           <p className={styles.sidebarDescription}>Belum ada sesi latihan.</p>
-        ) : (
+        ) : !errorMessage && (
           <ul className={styles.recentSessions}>
             {recentSessions.map((session) => (
               <li key={session.id}>
                 <button
                   className={styles.recentSession}
-                  onClick={() =>
-                    session.status === 'IN_PROGRESS' && onResume(session)
-                  }
+                  onClick={() => onSelectSession(session)}
                   type="button"
-                  disabled={session.status !== 'IN_PROGRESS'}
+                  disabled={Boolean(loadingSessionId)}
                 >
                   <span className={styles.recentSessionTitle}>
                     {session.context.title}
@@ -72,6 +108,9 @@ export function InterviewSidebar({
                       {getSessionStatusLabel(session.status)}
                     </Badge>
                   </span>
+                  {loadingSessionId === session.id && (
+                    <span className={styles.fieldHint}>Memuat detail...</span>
+                  )}
                 </button>
               </li>
             ))}
@@ -99,8 +138,8 @@ export function InterviewSidebar({
           Evaluasi Gemini
         </Badge>
         <p className={styles.sidebarDescription}>
-          Jawaban teks dikirim ke backend untuk dievaluasi. Ringkasan tersedia
-          setelah seluruh pertanyaan berhasil dijawab.
+          Jawaban teks atau rekaman suara dikirim ke backend untuk dievaluasi.
+          Transkrip dan metrik suara hanya ditampilkan jika tersedia dari backend.
         </p>
       </Card>
     </aside>

@@ -21,6 +21,42 @@ const interviewDimensionSchema = z
   })
   .strict()
 
+const speechDeliveryMetricsSchema = z
+  .object({
+    durationSeconds: z.number().positive().nullable(),
+    durationStatus: z.enum(['MEASURED', 'UNAVAILABLE']),
+    wordCount: z.number().int().nonnegative().nullable(),
+    wordsPerMinute: z.number().nonnegative().nullable(),
+    speechRateStatus: z.enum([
+      'MEASURED',
+      'INSUFFICIENT_TRANSCRIPT',
+      'UNAVAILABLE',
+    ]),
+    pauseCount: z.number().int().nonnegative().nullable(),
+    totalPauseSeconds: z.number().nonnegative().nullable(),
+    pauseStatus: z.enum([
+      'ESTIMATED_FROM_SEGMENTS',
+      'MEASURED',
+      'INSUFFICIENT_SEGMENTS',
+      'UNAVAILABLE',
+    ]),
+    pauseSource: z.literal('WHISPER_SEGMENT_TIMESTAMPS').optional(),
+    pauseThresholdSeconds: z.number().positive().optional(),
+    pitchMedianHz: z.number().positive().nullable().optional(),
+    pitchVariation: z.number().nonnegative().nullable(),
+    pitchVariationUnit: z.literal('semitones').optional(),
+    voicedFrameCount: z.number().int().nonnegative().nullable().optional(),
+    pitchStatus: z.enum([
+      'MEASURED',
+      'INSUFFICIENT_VOICED_FRAMES',
+      'UNSUPPORTED_FORMAT',
+      'NOT_ANALYZED',
+    ]),
+    pitchFeedback: z.string().min(1).max(500).optional(),
+    deliveryFeedback: z.string().min(1).max(1_000),
+  })
+  .strict()
+
 const interviewEvaluationResultSchema = z
   .object({
     dimensions: z
@@ -41,7 +77,7 @@ const interviewEvaluationSchema = z
     score: z.number().int().min(0).max(100),
     evaluatedAt: z.string().min(1),
     result: interviewEvaluationResultSchema,
-    speechMetrics: z.unknown().optional(),
+    speechMetrics: speechDeliveryMetricsSchema.optional(),
   })
   .strict()
 
@@ -125,6 +161,26 @@ const interviewSessionDetailEnvelopeSchema = z
   })
   .strict()
 
+const interviewSessionListEnvelopeSchema = z
+  .object({
+    success: z.literal(true),
+    message: z.string(),
+    data: z
+      .object({
+        sessions: z.array(interviewSessionSchema),
+        pagination: z
+          .object({
+            page: z.number().int().positive(),
+            pageSize: z.number().int().positive(),
+            total: z.number().int().nonnegative(),
+            totalPages: z.number().int().nonnegative(),
+          })
+          .strict(),
+      })
+      .strict(),
+  })
+  .strict()
+
 const completeInterviewSessionEnvelopeSchema = z
   .object({
     success: z.literal(true),
@@ -150,8 +206,15 @@ export type EvaluatedInterviewAnswerRecord = z.infer<
   typeof evaluatedInterviewAnswerSchema
 >
 export type InterviewSummaryRecord = z.infer<typeof interviewSummarySchema>
+export type SpeechDeliveryMetricsRecord = z.infer<
+  typeof speechDeliveryMetricsSchema
+>
+export type InterviewSessionListResult = z.infer<
+  typeof interviewSessionListEnvelopeSchema
+>['data']
 
 const requestTimeoutMs = 60_000
+const audioRequestTimeoutMs = 150_000
 
 function accessToken(): string {
   const token = getStoredAccessToken()
@@ -167,10 +230,11 @@ function accessToken(): string {
 async function requestInterviewApi(
   path: string,
   init: RequestInit,
+  timeoutMs = requestTimeoutMs,
 ): Promise<unknown> {
   const token = accessToken()
   const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), requestTimeoutMs)
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
 
   try {
     const { body } = await apiRequest(
@@ -228,6 +292,22 @@ export async function submitInterviewAnswer(
   return parseResponse(body, submitInterviewAnswerEnvelopeSchema).data.answer
 }
 
+export async function submitInterviewAudioAnswer(
+  sessionId: string,
+  questionId: string,
+  audio: File,
+): Promise<EvaluatedInterviewAnswerRecord> {
+  const formData = new FormData()
+  formData.append('questionId', questionId)
+  formData.append('audio', audio, audio.name)
+  const body = await requestInterviewApi(
+    `/api/interview-sessions/${encodeURIComponent(sessionId)}/audio-answers`,
+    { method: 'POST', body: formData },
+    audioRequestTimeoutMs,
+  )
+  return parseResponse(body, submitInterviewAnswerEnvelopeSchema).data.answer
+}
+
 export async function getInterviewSession(
   sessionId: string,
 ): Promise<InterviewSessionRecord> {
@@ -236,6 +316,21 @@ export async function getInterviewSession(
     { method: 'GET' },
   )
   return parseResponse(body, interviewSessionDetailEnvelopeSchema).data
+}
+
+export async function listInterviewSessions(
+  page = 1,
+  pageSize = 10,
+): Promise<InterviewSessionListResult> {
+  const query = new URLSearchParams({
+    page: String(page),
+    pageSize: String(pageSize),
+  })
+  const body = await requestInterviewApi(
+    `/api/interview-sessions?${query.toString()}`,
+    { method: 'GET' },
+  )
+  return parseResponse(body, interviewSessionListEnvelopeSchema).data
 }
 
 export async function completeInterviewSession(
