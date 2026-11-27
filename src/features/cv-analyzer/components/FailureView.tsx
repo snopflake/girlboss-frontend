@@ -50,9 +50,6 @@ export function FailureView({
           Pilih CV Lain
         </Button>
       </div>
-      <p className={styles.simulationNotice} role="note">
-        Status ini merupakan simulasi untuk demo, bukan hasil pemrosesan AI.
-      </p>
     </Card>
   )
 }

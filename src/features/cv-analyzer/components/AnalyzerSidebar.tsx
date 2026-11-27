@@ -1,20 +1,26 @@
-import { ArrowRight, Clock3, FileSearch, Sparkles } from 'lucide-react'
+import {
+  ArrowRight,
+  Clock3,
+  Eye,
+  FileSearch,
+  LoaderCircle,
+  Sparkles,
+} from 'lucide-react'
 import { Link } from 'react-router'
 import { routePaths } from '../../../app/router/routePaths'
-import { Badge, Button, Card, Select } from '../../../design-system/components'
-import type {
-  AnalysisOutcome,
-  AnalysisRecord,
-} from '../types/cvAnalyzer'
+import { Badge, Button, Card } from '../../../design-system/components'
+import type { AnalysisRecord } from '../types/cvAnalyzer'
 import { formatCvDate } from '../utils/cvFormatters'
 import styles from '../pages/CvAnalyzerPage.module.css'
 
 interface AnalyzerSidebarProps {
   history: AnalysisRecord[]
-  demoOutcome: AnalysisOutcome
-  onDemoOutcomeChange(outcome: AnalysisOutcome): void
+  loading: boolean
+  error: string | null
+  selectedAnalysisId: string | null
   onOpenHistory(): void
   onOpenRecord(record: AnalysisRecord): void
+  onRetryLoad(): void
 }
 
 function statusLabel(status: AnalysisRecord['status']) {
@@ -31,10 +37,12 @@ function statusVariant(status: AnalysisRecord['status']) {
 
 export function AnalyzerSidebar({
   history,
-  demoOutcome,
-  onDemoOutcomeChange,
+  loading,
+  error,
+  selectedAnalysisId,
   onOpenHistory,
   onOpenRecord,
+  onRetryLoad,
 }: AnalyzerSidebarProps) {
   return (
     <aside className={styles.sidebar}>
@@ -45,7 +53,23 @@ export function AnalyzerSidebar({
           </span>
           <h2>Riwayat Analisis</h2>
         </div>
-        {history.length === 0 ? (
+        {loading && history.length === 0 ? (
+          <p className={styles.sidebarDescription} role="status">
+            Memuat riwayat...
+          </p>
+        ) : error && history.length === 0 ? (
+          <div className={styles.sidebarDescription} role="alert">
+            <p>{error}</p>
+            <Button
+              onClick={onRetryLoad}
+              size="small"
+              type="button"
+              variant="outline"
+            >
+              Coba lagi
+            </Button>
+          </div>
+        ) : history.length === 0 ? (
           <p className={styles.sidebarDescription}>
             Belum ada riwayat analisis.
           </p>
@@ -55,11 +79,20 @@ export function AnalyzerSidebar({
               <li key={record.analysisId}>
                 <button
                   className={styles.recentItem}
+                  disabled={selectedAnalysisId === record.analysisId}
                   onClick={() => onOpenRecord(record)}
                   type="button"
                 >
                   <span className={styles.recentFile}>
-                    <FileSearch aria-hidden="true" size={16} />
+                    {selectedAnalysisId === record.analysisId ? (
+                      <LoaderCircle
+                        aria-hidden="true"
+                        className={styles.smallSpinner}
+                        size={16}
+                      />
+                    ) : (
+                      <FileSearch aria-hidden="true" size={16} />
+                    )}
                     <span title={record.name}>{record.name}</span>
                   </span>
                   <span className={styles.recentMeta}>
@@ -73,8 +106,14 @@ export function AnalyzerSidebar({
             ))}
           </ul>
         )}
+        {error && history.length > 0 && (
+          <p className={styles.sidebarDescription} role="status">
+            Riwayat tidak dapat diperbarui: {error}
+          </p>
+        )}
         <Button
           className={styles.fullWidthButton}
+          leadingIcon={<Eye size={16} />}
           onClick={onOpenHistory}
           size="small"
           type="button"
@@ -93,29 +132,15 @@ export function AnalyzerSidebar({
           <h2>Tentang Analisis AI</h2>
         </div>
         <p className={styles.sidebarDescription}>
-          Tampilan ini memakai data dan progres simulasi lokal. Dokumen tidak
-          dikirim ke server atau layanan AI.
+          CV tersimpan diproses oleh backend menggunakan Gemini. Hasil hanya
+          ditampilkan setelah analisis berhasil.
         </p>
         <ul className={styles.infoList}>
           <li>Format CV: PDF atau DOCX</li>
-          <li>Ukuran maksimum: 5 MB</li>
-          <li>Batas ukuran perlu diselaraskan dengan backend.</li>
+          <li>Ukuran maksimum: 10 MiB</li>
+          <li>Maksimum 5 CV tersimpan</li>
+          <li>Maksimum 3 analisis per 24 jam</li>
         </ul>
-        <div className={styles.demoControl}>
-          <label htmlFor="demo-outcome">Hasil simulasi demo</label>
-          <Select
-            id="demo-outcome"
-            onChange={(event) =>
-              onDemoOutcomeChange(
-                event.currentTarget.value === 'FAILED' ? 'FAILED' : 'COMPLETED',
-              )
-            }
-            value={demoOutcome}
-          >
-            <option value="COMPLETED">Selesai</option>
-            <option value="FAILED">Gagal</option>
-          </Select>
-        </div>
         <Link className={styles.sidebarLink} to={routePaths.applicant.interview}>
           Lanjutkan ke AI Interview
           <ArrowRight size={16} aria-hidden="true" />

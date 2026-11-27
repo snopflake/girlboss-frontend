@@ -4,6 +4,14 @@ const apiBaseUrl = (
   import.meta.env.VITE_API_BASE_URL?.trim() || 'http://localhost:4000'
 ).replace(/\/+$/, '')
 
+export const authSessionStorageKey = 'girlboss.auth.access-token'
+
+export function getStoredAccessToken(): string | null {
+  return typeof window === 'undefined'
+    ? null
+    : window.sessionStorage.getItem(authSessionStorageKey)
+}
+
 const roleSchema = z.enum(['APPLICANT', 'COMPANY', 'ADMIN'])
 const userSchema = z.object({
   id: z.string(),
@@ -66,24 +74,33 @@ export class AuthApiError extends Error {
   }
 }
 
-async function request(
+export async function apiRequest(
   path: string,
   init: RequestInit,
+  accessToken?: string,
+  serviceName = 'backend',
 ): Promise<{ response: Response; body: unknown }> {
   let response: Response
   try {
+    const headers = new Headers(init.headers)
+    headers.set('Accept', 'application/json')
+    const isFormData =
+      typeof FormData !== 'undefined' && init.body instanceof FormData
+    if (init.body && !isFormData && !headers.has('Content-Type')) {
+      headers.set('Content-Type', 'application/json')
+    }
+    if (accessToken) {
+      headers.set('Authorization', `Bearer ${accessToken}`)
+    }
+
     response = await fetch(`${apiBaseUrl}${path}`, {
       ...init,
-      headers: {
-        Accept: 'application/json',
-        ...(init.body ? { 'Content-Type': 'application/json' } : {}),
-        ...init.headers,
-      },
+      headers,
     })
   } catch (error) {
     if (error instanceof TypeError) {
       throw new AuthApiError(
-        'Tidak dapat terhubung ke layanan autentikasi. Periksa koneksi dan coba lagi.',
+        `Tidak dapat terhubung ke ${serviceName}. Periksa koneksi dan coba lagi.`,
       )
     }
     throw error
@@ -94,7 +111,7 @@ async function request(
     body = await response.json()
   } catch {
     throw new AuthApiError(
-      'Respons layanan autentikasi tidak dapat dibaca.',
+      `Respons ${serviceName} tidak dapat dibaca.`,
       response.status,
     )
   }
@@ -106,12 +123,19 @@ async function request(
       'message' in body &&
       typeof body.message === 'string'
         ? body.message
-        : 'Permintaan autentikasi tidak dapat diproses.'
+        : `Permintaan ke ${serviceName} tidak dapat diproses.`
 
     throw new AuthApiError(message, response.status)
   }
 
   return { response, body }
+}
+
+async function request(
+  path: string,
+  init: RequestInit,
+): Promise<{ response: Response; body: unknown }> {
+  return apiRequest(path, init, undefined, 'layanan autentikasi')
 }
 
 function parseSuccess<T>(

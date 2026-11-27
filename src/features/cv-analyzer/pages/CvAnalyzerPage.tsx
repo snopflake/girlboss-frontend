@@ -1,120 +1,170 @@
 import { FileText, Info, UploadCloud } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import { routePaths } from '../../../app/router/routePaths'
+import { Badge, Button, Card } from '../../../design-system/components'
+import { AuthApiError } from '../../auth/api/authApi'
 import {
-  Badge,
-  Button,
-  Card,
-} from '../../../design-system/components'
+  createCvAnalysis,
+  getCvAnalysis,
+  listCvAnalyses,
+  listApplicantCvs,
+  uploadApplicantCv,
+} from '../api/cvAnalyzerApi'
+import type { CvAnalysisResponse } from '../api/cvAnalyzerApi'
 import { AnalyzerSidebar } from '../components/AnalyzerSidebar'
 import { FailureView } from '../components/FailureView'
 import { HistoryView } from '../components/HistoryView'
 import { ProcessingView } from '../components/ProcessingView'
 import { ResultView } from '../components/ResultView'
 import { UploadZone } from '../components/UploadZone'
-import {
-  initialAnalysisHistory,
-  MAX_CV_FILE_SIZE,
-  mockAnalysisFailure,
-  mockAnalysisResult,
-  savedCvDocuments,
-} from '../mocks/cvAnalyzerMock'
 import type {
-  AnalysisOutcome,
   AnalysisRecord,
-  AnalysisStatus,
+  CvAnalysisResult,
   CvAnalyzerScreen,
   CvAnalyzerView,
   CvDocument,
   CvFileError,
   CvSource,
 } from '../types/cvAnalyzer'
-import { formatCvDate, formatCvFileSize } from '../utils/cvFormatters'
+import { formatCvFileSize } from '../utils/cvFormatters'
 import styles from './CvAnalyzerPage.module.css'
 
-type HistoryStatusFilter = 'ALL' | AnalysisStatus
+const MAX_CV_FILE_SIZE = 10 * 1024 * 1024
+const MAX_SAVED_CVS = 5
+const HISTORY_PAGE_SIZE = 10
 
 function isSupportedFile(file: File) {
   const extension = file.name.split('.').pop()?.toLowerCase()
   return extension === 'pdf' || extension === 'docx'
 }
 
-function toDocument(file: File): CvDocument {
-  const extension = file.name.split('.').pop()?.toLowerCase()
-  return {
-    id: `upload-${Date.now()}`,
-    name: file.name,
-    format: extension === 'docx' ? 'DOCX' : 'PDF',
-    size: file.size,
-    uploadedAt: new Date().toISOString(),
-  }
+function toFailure(error: unknown) {
+  const message =
+    error instanceof Error
+      ? error.message
+      : 'Analisis CV tidak dapat diselesaikan. Silakan coba kembali.'
+  const status =
+    error instanceof AuthApiError && error.status
+      ? `HTTP ${error.status}`
+      : 'Permintaan ke backend gagal.'
+
+  return { message, details: status }
 }
 
 export default function CvAnalyzerPage() {
   const [view, setView] = useState<CvAnalyzerView>('analyzer')
   const [screen, setScreen] = useState<CvAnalyzerScreen>('choose')
   const [source, setSource] = useState<CvSource>('saved')
-  const [selectedSavedId, setSelectedSavedId] = useState<string | null>(
-    savedCvDocuments[0]?.id ?? null,
-  )
+  const [cvDocuments, setCvDocuments] = useState<CvDocument[]>([])
+  const [selectedSavedId, setSelectedSavedId] = useState<string | null>(null)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [fileError, setFileError] = useState<CvFileError | null>(null)
-  const [history, setHistory] = useState<AnalysisRecord[]>(() => [
-    ...initialAnalysisHistory,
-  ])
-  const [searchTerm, setSearchTerm] = useState('')
-  const [statusFilter, setStatusFilter] =
-    useState<HistoryStatusFilter>('ALL')
-  const [demoOutcome, setDemoOutcome] =
-    useState<AnalysisOutcome>('COMPLETED')
-  const [activeDocument, setActiveDocument] = useState<CvDocument | null>(null)
-  const [currentAnalysisId, setCurrentAnalysisId] = useState<string | null>(
-    null,
-  )
-  const [analyzedAt, setAnalyzedAt] = useState(new Date().toISOString())
-  const [progress, setProgress] = useState(0)
-  const [cancelled, setCancelled] = useState(false)
-
-  const selectedSavedDocument = useMemo(
-    () => savedCvDocuments.find(({ id }) => id === selectedSavedId) ?? null,
-    [selectedSavedId],
-  )
+  const [cvListLoading, setCvListLoading] = useState(true)
+  const [cvListError, setCvListError] = useState<string | null>(null)
+  const [reloadCvs, setReloadCvs] = useState(0)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [activeCvId, setActiveCvId] = useState<string | null>(null)
+  const [activeDocumentName, setActiveDocumentName] = useState('')
+  const [analysisResult, setAnalysisResult] =
+    useState<CvAnalysisResult | null>(null)
+  const [analyzedAt, setAnalyzedAt] = useState('')
+  const [analysisFailure, setAnalysisFailure] = useState<{
+    message: string
+    details: string
+  } | null>(null)
+  const [showingHistoryDetail, setShowingHistoryDetail] = useState(false)
+  const [history, setHistory] = useState<CvAnalysisResponse[]>([])
+  const [historyPage, setHistoryPage] = useState(1)
+  const [historyTotal, setHistoryTotal] = useState(0)
+  const [historyTotalPages, setHistoryTotalPages] = useState(0)
+  const [historyLoading, setHistoryLoading] = useState(true)
+  const [historyError, setHistoryError] = useState<string | null>(null)
+  const [historyReload, setHistoryReload] = useState(0)
+  const [historyDetailLoadingId, setHistoryDetailLoadingId] = useState<
+    string | null
+  >(null)
 
   useEffect(() => {
-    if (screen !== 'processing' || !activeDocument || !currentAnalysisId) {
-      return
-    }
+    let active = true
 
-    if (progress >= 100) {
-      const completionTimer = window.setTimeout(() => {
-        const completedAt = new Date().toISOString()
-        setAnalyzedAt(completedAt)
-        setHistory((records) =>
-          records.map((record) =>
-            record.analysisId === currentAnalysisId
-              ? { ...record, status: demoOutcome, analyzedAt: completedAt }
-              : record,
-          ),
+    void listApplicantCvs()
+      .then((documents) => {
+        if (!active) return
+        setCvDocuments(documents)
+        setSelectedSavedId((selectedId) =>
+          documents.some(({ id }) => id === selectedId)
+            ? selectedId
+            : (documents[0]?.id ?? null),
         )
-        setScreen(demoOutcome === 'COMPLETED' ? 'result' : 'failure')
-      }, 350)
+      })
+      .catch((error: unknown) => {
+        if (!active) return
+        setCvListError(
+          error instanceof Error
+            ? error.message
+            : 'Daftar CV tidak dapat dimuat.',
+        )
+      })
+      .finally(() => {
+        if (active) setCvListLoading(false)
+      })
 
-      return () => window.clearTimeout(completionTimer)
+    return () => {
+      active = false
     }
+  }, [reloadCvs])
 
-    const progressTimer = window.setTimeout(() => {
-      setProgress((current) => Math.min(current + 16, 100))
-    }, 350)
+  useEffect(() => {
+    let active = true
+    void listCvAnalyses(historyPage, HISTORY_PAGE_SIZE)
+      .then(({ analyses, pagination }) => {
+        if (!active) return
+        setHistory(analyses)
+        setHistoryTotal(pagination.total)
+        setHistoryTotalPages(pagination.totalPages)
+        setHistoryError(null)
+      })
+      .catch((error: unknown) => {
+        if (!active) return
+        setHistoryError(
+          error instanceof Error
+            ? error.message
+            : 'Riwayat analisis tidak dapat dimuat.',
+        )
+      })
+      .finally(() => {
+        if (active) setHistoryLoading(false)
+      })
 
-    return () => window.clearTimeout(progressTimer)
-  }, [
-    activeDocument,
-    currentAnalysisId,
-    demoOutcome,
-    progress,
-    screen,
-  ])
+    return () => {
+      active = false
+    }
+  }, [historyPage, historyReload])
+
+  const selectedSavedDocument =
+    cvDocuments.find(({ id }) => id === selectedSavedId) ?? null
+  const historyRecords: AnalysisRecord[] = history.map((analysis) => {
+    const cv = cvDocuments.find(({ id }) => id === analysis.cvId)
+    return {
+      analysisId: analysis.id,
+      cvId: analysis.cvId,
+      name: cv?.name ?? `CV ${analysis.cvId}`,
+      analyzedAt: analysis.requestedAt,
+      status: analysis.status,
+    }
+  })
+  const canUploadCv =
+    !cvListLoading &&
+    !cvListError &&
+    cvDocuments.length < MAX_SAVED_CVS
+  const canStartAnalysis =
+    !isSubmitting &&
+    !cvListLoading &&
+    !cvListError &&
+    (source === 'saved'
+      ? Boolean(selectedSavedDocument)
+      : canUploadCv && Boolean(selectedFile) && fileError === null)
 
   function handleFileSelect(file: File | null) {
     setSelectedFile(file)
@@ -129,172 +179,252 @@ export default function CvAnalyzerPage() {
     )
   }
 
-  function startAnalysis(
-    document: CvDocument | null = source === 'saved'
-      ? selectedSavedDocument
-      : selectedFile && !fileError
-        ? toDocument(selectedFile)
-        : null,
-    existingAnalysisId?: string,
+  async function runAnalysis(
+    savedDocument: Pick<CvDocument, 'id' | 'name'> | null,
+    fileToUpload?: File,
+    fromHistory = false,
   ) {
-    if (!document) return
+    if (!savedDocument && !fileToUpload) return
 
-    const startedAt = new Date().toISOString()
-    const analysisId = existingAnalysisId ?? `analysis-${Date.now()}`
-    const processingRecord: AnalysisRecord = {
-      ...document,
-      analysisId,
-      analyzedAt: startedAt,
-      status: 'PROCESSING',
-    }
-
-    setHistory((records) =>
-      existingAnalysisId
-        ? records.map((record) =>
-            record.analysisId === existingAnalysisId
-              ? processingRecord
-              : record,
-          )
-        : [processingRecord, ...records],
-    )
+    setIsSubmitting(true)
+    setAnalysisResult(null)
+    setAnalysisFailure(null)
+    setActiveCvId(savedDocument?.id ?? null)
+    setActiveDocumentName(savedDocument?.name ?? fileToUpload?.name ?? '')
+    setShowingHistoryDetail(fromHistory)
     setView('analyzer')
-    setActiveDocument(document)
-    setCurrentAnalysisId(analysisId)
-    setAnalyzedAt(startedAt)
-    setProgress(0)
-    setCancelled(false)
     setScreen('processing')
+
+    try {
+      let document = savedDocument
+      if (!document && fileToUpload) {
+        const uploadedDocument = await uploadApplicantCv(fileToUpload)
+        document = uploadedDocument
+        setCvDocuments((documents) => [
+          uploadedDocument,
+          ...documents.filter(({ id }) => id !== uploadedDocument.id),
+        ])
+        setSelectedSavedId(document.id)
+        setSource('saved')
+        setSelectedFile(null)
+        setActiveCvId(document.id)
+        setActiveDocumentName(document.name)
+      }
+
+      if (!document) {
+        throw new Error('CV belum tersedia untuk dianalisis.')
+      }
+
+      const analysis = await createCvAnalysis(document.id)
+      if (analysis.status !== 'COMPLETED' || !analysis.result) {
+        throw new AuthApiError(
+          'Backend belum mengembalikan hasil analisis yang selesai.',
+          503,
+        )
+      }
+
+      setAnalysisResult(analysis.result)
+      setAnalyzedAt(analysis.requestedAt)
+      setScreen('result')
+      setHistoryReload((count) => count + 1)
+    } catch (error) {
+      setAnalysisFailure(toFailure(error))
+      setScreen('failure')
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
-  function cancelAnalysis() {
-    if (currentAnalysisId) {
-      setHistory((records) =>
-        records.filter((record) => record.analysisId !== currentAnalysisId),
-      )
+  function handleStartAnalysis() {
+    if (source === 'saved') {
+      void runAnalysis(selectedSavedDocument)
+      return
     }
-    setCurrentAnalysisId(null)
-    setActiveDocument(null)
-    setProgress(0)
-    setCancelled(true)
-    setScreen('choose')
+    if (selectedFile && !fileError && canUploadCv) {
+      void runAnalysis(null, selectedFile)
+    }
+  }
+
+  function retryAnalysis() {
+    if (activeCvId) {
+      void runAnalysis(
+        { id: activeCvId, name: activeDocumentName },
+        undefined,
+        showingHistoryDetail,
+      )
+      return
+    }
+    if (selectedFile && !fileError && canUploadCv) {
+      void runAnalysis(null, selectedFile)
+    }
   }
 
   function resetForNewDocument() {
-    setView('analyzer')
     setScreen('choose')
-    setSource('upload')
+    setSource(cvDocuments.length < MAX_SAVED_CVS ? 'upload' : 'saved')
     setSelectedFile(null)
     setFileError(null)
-    setActiveDocument(null)
-    setCurrentAnalysisId(null)
-    setCancelled(false)
+    setAnalysisFailure(null)
+    setAnalysisResult(null)
+    setActiveCvId(null)
+    setActiveDocumentName('')
+    setShowingHistoryDetail(false)
+    setView('analyzer')
+  }
+
+  function returnToSelection() {
+    setView('analyzer')
+    setScreen('choose')
+    setAnalysisFailure(null)
+    setAnalysisResult(null)
+    setShowingHistoryDetail(false)
   }
 
   function cancelSelection() {
     setSource('saved')
     setSelectedFile(null)
     setFileError(null)
-    setSelectedSavedId(null)
-    setCancelled(false)
   }
 
-  function openRecord(record: AnalysisRecord) {
-    setView('analyzer')
-    setActiveDocument(record)
-    setCurrentAnalysisId(record.analysisId)
-    setAnalyzedAt(record.analyzedAt)
-    setCancelled(false)
+  function retryLoadingCvs() {
+    setCvListLoading(true)
+    setCvListError(null)
+    setReloadCvs((count) => count + 1)
+  }
 
-    if (record.status === 'COMPLETED') {
-      setScreen('result')
-    } else if (record.status === 'FAILED') {
-      setScreen('failure')
-    } else {
-      setProgress(40)
-      setScreen('processing')
+  function openHistory() {
+    setView('history')
+  }
+
+  function retryHistory() {
+    setHistoryLoading(true)
+    setHistoryError(null)
+    setHistoryReload((count) => count + 1)
+  }
+
+  function changeHistoryPage(page: number) {
+    setHistoryLoading(true)
+    setHistoryError(null)
+    setHistoryPage(page)
+  }
+
+  async function openHistoryRecord(record: AnalysisRecord) {
+    setView('history')
+    setHistoryDetailLoadingId(record.analysisId)
+    setHistoryError(null)
+    try {
+      const analysis = await getCvAnalysis(record.analysisId)
+      const cv = cvDocuments.find(({ id }) => id === analysis.cvId)
+      const documentName = cv?.name ?? record.name
+      setActiveCvId(analysis.cvId)
+      setActiveDocumentName(documentName)
+      setShowingHistoryDetail(true)
+      setAnalyzedAt(analysis.requestedAt)
+
+      if (analysis.status === 'COMPLETED' && analysis.result) {
+        setAnalysisResult(analysis.result)
+        setAnalysisFailure(null)
+        setScreen('result')
+      } else if (analysis.status === 'PROCESSING') {
+        setAnalysisResult(null)
+        setAnalysisFailure(null)
+        setScreen('processing')
+      } else {
+        setAnalysisResult(null)
+        setAnalysisFailure({
+          message:
+            analysis.status === 'FAILED'
+              ? 'Analisis CV ini berstatus gagal dari backend.'
+              : 'Backend tidak menyediakan hasil untuk analisis ini.',
+          details: `Status analisis: ${analysis.status}`,
+        })
+        setScreen('failure')
+      }
+      setView('analyzer')
+    } catch (error) {
+      setHistoryError(
+        error instanceof Error
+          ? error.message
+          : 'Detail analisis tidak dapat dimuat.',
+      )
+    } finally {
+      setHistoryDetailLoadingId(null)
     }
   }
 
-  function retryRecord(record: AnalysisRecord) {
-    startAnalysis(record)
+  function returnFromHistoryDetail() {
+    setView('history')
+    retryHistory()
   }
-
-  function handleHistoryStatusChange(value: HistoryStatusFilter) {
-    setStatusFilter(value)
-  }
-
-  const canStartAnalysis =
-    source === 'saved'
-      ? Boolean(selectedSavedDocument)
-      : Boolean(selectedFile) && fileError === null
 
   return (
     <section className={styles.page} aria-labelledby="cv-analyzer-title">
       <header className={styles.pageHeader}>
         <div>
           <div className={styles.eyebrow}>Ruang karier pelamar</div>
-          <h1 id="cv-analyzer-title">
-            {view === 'history' ? 'Riwayat Analisis' : 'AI CV Analyzer'}
-          </h1>
+          <h1 id="cv-analyzer-title">AI CV Analyzer</h1>
           <p>
-            {view === 'history'
-              ? 'Tinjau dan kelola hasil analisis CV simulasi.'
-              : 'Tinjau CV dan temukan peluang untuk menyempurnakan profil profesionalmu.'}
+            Tinjau CV dan temukan peluang untuk menyempurnakan profil
+            profesionalmu.
           </p>
         </div>
-        {view === 'history' && (
-          <Button
-            leadingIcon={<UploadCloud size={17} />}
-            onClick={resetForNewDocument}
-            type="button"
-          >
-            Analisis CV Baru
-          </Button>
-        )}
       </header>
-
-      {cancelled && view === 'analyzer' && (
-        <div className={styles.cancelNotice} role="status">
-          Simulasi analisis dibatalkan. Dokumen belum dikirim ke layanan AI.
-        </div>
-      )}
 
       <div className={styles.workspace}>
         <div className={styles.primaryColumn}>
           {view === 'history' ? (
             <HistoryView
-              history={history}
+              error={historyError}
+              history={historyRecords}
+              loading={historyLoading}
               onAnalyzeNew={resetForNewDocument}
-              onClearDemoHistory={() => setHistory([])}
-              onOpenRecord={openRecord}
-              onRetry={retryRecord}
-              onSearchTermChange={setSearchTerm}
-              onStatusFilterChange={handleHistoryStatusChange}
-              searchTerm={searchTerm}
-              statusFilter={statusFilter}
+              onOpenRecord={openHistoryRecord}
+              onPageChange={changeHistoryPage}
+              onRetryLoad={retryHistory}
+              page={historyPage}
+              selectedAnalysisId={historyDetailLoadingId}
+              total={historyTotal}
+              totalPages={historyTotalPages}
             />
-          ) : screen === 'processing' && activeDocument ? (
+          ) : screen === 'processing' ? (
             <ProcessingView
-              documentName={activeDocument.name}
-              onCancel={cancelAnalysis}
-              progress={progress}
+              documentName={activeDocumentName}
+              mode={showingHistoryDetail ? 'history' : 'analysis'}
+              onBackToHistory={
+                showingHistoryDetail ? returnFromHistoryDetail : undefined
+              }
             />
-          ) : screen === 'result' && activeDocument ? (
+          ) : screen === 'result' && activeCvId && analysisResult ? (
             <ResultView
               analyzedAt={analyzedAt}
-              documentName={activeDocument.name}
-              onAnalyzeAgain={() => startAnalysis(activeDocument)}
-              onBackToHistory={() => setView('history')}
+              backLabel={
+                showingHistoryDetail
+                  ? 'Kembali ke riwayat'
+                  : 'Kembali ke pilihan CV'
+              }
+              documentName={activeDocumentName}
+              onAnalyzeAgain={() =>
+                void runAnalysis(
+                  { id: activeCvId, name: activeDocumentName },
+                  undefined,
+                  showingHistoryDetail,
+                )
+              }
+              onBackToSelection={
+                showingHistoryDetail ? returnFromHistoryDetail : returnToSelection
+              }
               onUploadNew={resetForNewDocument}
-              result={mockAnalysisResult}
+              result={analysisResult}
             />
-          ) : screen === 'failure' && activeDocument ? (
+          ) : screen === 'failure' && analysisFailure ? (
             <FailureView
-              details={mockAnalysisFailure.details}
-              documentName={activeDocument.name}
-              message={mockAnalysisFailure.message}
-              onChooseAnother={resetForNewDocument}
-              onRetry={() => startAnalysis(activeDocument)}
+              details={analysisFailure.details}
+              documentName={activeDocumentName}
+              message={analysisFailure.message}
+              onChooseAnother={
+                showingHistoryDetail ? returnFromHistoryDetail : returnToSelection
+              }
+              onRetry={retryAnalysis}
             />
           ) : (
             <div className={styles.chooseView}>
@@ -319,6 +449,7 @@ export default function CvAnalyzerPage() {
                     ]
                       .filter(Boolean)
                       .join(' ')}
+                    disabled={isSubmitting || cvListLoading}
                     id="saved-cv-tab"
                     onClick={() => setSource('saved')}
                     role="tab"
@@ -335,6 +466,7 @@ export default function CvAnalyzerPage() {
                     ]
                       .filter(Boolean)
                       .join(' ')}
+                    disabled={isSubmitting || !canUploadCv}
                     id="upload-cv-tab"
                     onClick={() => setSource('upload')}
                     role="tab"
@@ -351,38 +483,62 @@ export default function CvAnalyzerPage() {
                     id="saved-cv-panel"
                     role="tabpanel"
                   >
-                    {savedCvDocuments.map((document) => (
-                      <label
-                        className={[
-                          styles.savedDocument,
-                          selectedSavedId === document.id
-                            ? styles.savedDocumentSelected
-                            : '',
-                        ]
-                          .filter(Boolean)
-                          .join(' ')}
-                        key={document.id}
-                      >
-                        <input
-                          checked={selectedSavedId === document.id}
-                          name="saved-cv"
-                          onChange={() => setSelectedSavedId(document.id)}
-                          type="radio"
-                          value={document.id}
-                        />
-                        <span className={styles.fileIcon} aria-hidden="true">
-                          <FileText size={20} />
-                        </span>
-                        <span className={styles.savedDocumentInfo}>
-                          <strong title={document.name}>{document.name}</strong>
-                          <span>
-                            {document.format} · {formatCvFileSize(document.size)}
+                    {cvListLoading ? (
+                      <p role="status">Memuat CV tersimpan...</p>
+                    ) : cvListError ? (
+                      <div className={styles.validationSummary} role="alert">
+                        <p>{cvListError}</p>
+                        <Button
+                          onClick={retryLoadingCvs}
+                          size="small"
+                          type="button"
+                          variant="outline"
+                        >
+                          Coba muat ulang
+                        </Button>
+                      </div>
+                    ) : cvDocuments.length === 0 ? (
+                      <p>Belum ada CV tersimpan. Unggah CV untuk memulai.</p>
+                    ) : (
+                      cvDocuments.map((document) => (
+                        <label
+                          className={[
+                            styles.savedDocument,
+                            selectedSavedId === document.id
+                              ? styles.savedDocumentSelected
+                              : '',
+                          ]
+                            .filter(Boolean)
+                            .join(' ')}
+                          key={document.id}
+                        >
+                          <input
+                            checked={selectedSavedId === document.id}
+                            name="saved-cv"
+                            onChange={() => setSelectedSavedId(document.id)}
+                            type="radio"
+                            value={document.id}
+                          />
+                          <span className={styles.fileIcon} aria-hidden="true">
+                            <FileText size={20} />
                           </span>
-                          <span>Diunggah {formatCvDate(document.uploadedAt)}</span>
-                        </span>
-                        <Badge variant="neutral">{document.format}</Badge>
-                      </label>
-                    ))}
+                          <span className={styles.savedDocumentInfo}>
+                            <strong title={document.name}>{document.name}</strong>
+                            <span>
+                              {document.format} · {formatCvFileSize(document.size)}
+                            </span>
+                            <span>Tersimpan di akun</span>
+                          </span>
+                          <Badge variant="neutral">{document.format}</Badge>
+                        </label>
+                      ))
+                    )}
+                    {cvDocuments.length >= MAX_SAVED_CVS && (
+                      <p role="status">
+                        Batas 5 CV tersimpan tercapai. Hapus CV melalui halaman
+                        CV sebelum mengunggah lagi.
+                      </p>
+                    )}
                   </div>
                 ) : (
                   <div
@@ -406,12 +562,12 @@ export default function CvAnalyzerPage() {
                   <div>
                     <strong>Ketentuan Dokumen</strong>
                     <p>
-                      Format yang didukung PDF dan DOCX. Ukuran file maksimum
-                      5 MB.
+                      Format PDF atau DOCX, maksimum 10 MiB per file dan 5 CV
+                      tersimpan.
                     </p>
                     <span>
-                      Validasi ini berjalan lokal dan perlu diselaraskan dengan
-                      batas backend.
+                      Batas analisis adalah 3 permintaan per 24 jam. Kuota
+                      diterapkan backend.
                     </span>
                   </div>
                 </Card>
@@ -420,12 +576,13 @@ export default function CvAnalyzerPage() {
                   <Button
                     disabled={!canStartAnalysis}
                     leadingIcon={<UploadCloud size={17} />}
-                    onClick={() => startAnalysis()}
+                    onClick={handleStartAnalysis}
                     type="button"
                   >
                     Mulai Analisis
                   </Button>
                   <Button
+                    disabled={isSubmitting}
                     onClick={cancelSelection}
                     type="button"
                     variant="outline"
@@ -433,20 +590,19 @@ export default function CvAnalyzerPage() {
                     Batal
                   </Button>
                 </div>
-                <p className={styles.simulationNotice} role="note">
-                  Demo UI saja. Berkas tidak diunggah atau dianalisis oleh AI.
-                </p>
               </Card>
             </div>
           )}
         </div>
 
         <AnalyzerSidebar
-          demoOutcome={demoOutcome}
-          history={history}
-          onDemoOutcomeChange={setDemoOutcome}
-          onOpenHistory={() => setView('history')}
-          onOpenRecord={openRecord}
+          error={historyError}
+          history={historyRecords}
+          loading={historyLoading}
+          onOpenHistory={openHistory}
+          onOpenRecord={openHistoryRecord}
+          onRetryLoad={retryHistory}
+          selectedAnalysisId={historyDetailLoadingId}
         />
       </div>
 

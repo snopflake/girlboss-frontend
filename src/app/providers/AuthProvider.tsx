@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { AuthApiError, getCurrentUser, loginWithApi } from '../../features/auth/api/authApi'
+import {
+  AuthApiError,
+  authSessionStorageKey,
+  getCurrentUser,
+  loginWithApi,
+} from '../../features/auth/api/authApi'
 import { AuthContext, type AuthState, type UserRole } from './AuthContext'
-
-const sessionStorageKey = 'girlboss.auth.access-token'
 
 const initialState: AuthState = {
   status: 'loading',
@@ -33,14 +36,14 @@ function errorMessage(error: unknown) {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient()
   const [state, setState] = useState<AuthState>(() =>
-    window.sessionStorage.getItem(sessionStorageKey)
+    window.sessionStorage.getItem(authSessionStorageKey)
       ? initialState
       : { status: 'unauthenticated', user: null, role: null },
   )
 
   useEffect(() => {
     let active = true
-    const accessToken = window.sessionStorage.getItem(sessionStorageKey)
+    const accessToken = window.sessionStorage.getItem(authSessionStorageKey)
 
     if (!accessToken) {
       return () => {
@@ -69,7 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .catch((error: unknown) => {
         if (!active) return
         if (error instanceof AuthApiError && error.status === 401) {
-          window.sessionStorage.removeItem(sessionStorageKey)
+          window.sessionStorage.removeItem(authSessionStorageKey)
         }
         setState({
           status: 'unauthenticated',
@@ -88,7 +91,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setState({ status: 'loading', user: null, role: null })
     try {
       const session = await loginWithApi(email, password)
-      window.sessionStorage.setItem(sessionStorageKey, session.accessToken)
+      window.sessionStorage.setItem(authSessionStorageKey, session.accessToken)
       const currentUser = await getCurrentUser(session.accessToken)
       const role = toUserRole(currentUser.role)
       if (!role) {
@@ -108,7 +111,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setState(nextState)
       return role
     } catch (error) {
-      window.sessionStorage.removeItem(sessionStorageKey)
+      window.sessionStorage.removeItem(authSessionStorageKey)
       setState({
         status: 'unauthenticated',
         user: null,
@@ -120,7 +123,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const signOut = useCallback(() => {
-    window.sessionStorage.removeItem(sessionStorageKey)
+    window.sessionStorage.removeItem(authSessionStorageKey)
     queryClient.clear()
     setState({ status: 'unauthenticated', user: null, role: null })
   }, [queryClient])

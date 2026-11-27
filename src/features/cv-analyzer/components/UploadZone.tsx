@@ -13,7 +13,7 @@ interface UploadZoneProps {
 
 const fileErrorText: Record<CvFileError, string> = {
   'unsupported-format': 'Format file tidak didukung. Pilih file PDF atau DOCX.',
-  'too-large': 'Ukuran file melebihi batas maksimum 5 MB.',
+  'too-large': 'Ukuran file melebihi batas maksimum 10 MiB.',
 }
 
 export function UploadZone({

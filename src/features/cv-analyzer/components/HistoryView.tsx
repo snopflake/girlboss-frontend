@@ -1,4 +1,13 @@
-import { Eye, FilePlus2, FolderX, RotateCcw, Search } from 'lucide-react'
+import {
+  ArrowLeft,
+  ArrowRight,
+  Eye,
+  FilePlus2,
+  FolderX,
+  LoaderCircle,
+  Search,
+} from 'lucide-react'
+import { useState } from 'react'
 import {
   Badge,
   Button,
@@ -10,10 +19,24 @@ import type {
   AnalysisRecord,
   AnalysisStatus,
 } from '../types/cvAnalyzer'
-import { formatCvDate, formatCvFileSize } from '../utils/cvFormatters'
+import { formatCvDate } from '../utils/cvFormatters'
 import styles from '../pages/CvAnalyzerPage.module.css'
 
 type StatusFilter = 'ALL' | AnalysisStatus
+
+interface HistoryViewProps {
+  history: AnalysisRecord[]
+  page: number
+  total: number
+  totalPages: number
+  loading: boolean
+  error: string | null
+  selectedAnalysisId: string | null
+  onPageChange(page: number): void
+  onRetryLoad(): void
+  onAnalyzeNew(): void
+  onOpenRecord(record: AnalysisRecord): void
+}
 
 function toStatusFilter(value: string): StatusFilter {
   if (
@@ -24,18 +47,6 @@ function toStatusFilter(value: string): StatusFilter {
     return value
   }
   return 'ALL'
-}
-
-interface HistoryViewProps {
-  history: AnalysisRecord[]
-  searchTerm: string
-  statusFilter: StatusFilter
-  onSearchTermChange(value: string): void
-  onStatusFilterChange(value: StatusFilter): void
-  onAnalyzeNew(): void
-  onOpenRecord(record: AnalysisRecord): void
-  onRetry(record: AnalysisRecord): void
-  onClearDemoHistory(): void
 }
 
 function statusLabel(status: AnalysisStatus) {
@@ -52,15 +63,19 @@ function statusVariant(status: AnalysisStatus) {
 
 export function HistoryView({
   history,
-  searchTerm,
-  statusFilter,
-  onSearchTermChange,
-  onStatusFilterChange,
+  page,
+  total,
+  totalPages,
+  loading,
+  error,
+  selectedAnalysisId,
+  onPageChange,
+  onRetryLoad,
   onAnalyzeNew,
   onOpenRecord,
-  onRetry,
-  onClearDemoHistory,
 }: HistoryViewProps) {
+  const [searchTerm, setSearchTerm] = useState('')
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL')
   const filteredHistory = history.filter((record) => {
     const matchesSearch = record.name
       .toLocaleLowerCase('id-ID')
@@ -75,7 +90,7 @@ export function HistoryView({
       <header className={styles.historyHeader}>
         <div>
           <h2>Riwayat Analisis</h2>
-          <p>Daftar ini hanya tersimpan sementara sebagai data simulasi.</p>
+          <p>Riwayat analisis CV yang tersimpan di akunmu.</p>
         </div>
         <Button
           leadingIcon={<FilePlus2 size={17} />}
@@ -86,15 +101,35 @@ export function HistoryView({
         </Button>
       </header>
 
-      {history.length === 0 ? (
+      {loading && (
+        <p className={styles.progressLabel} role="status">
+          Memuat riwayat analisis...
+        </p>
+      )}
+
+      {error && (
+        <div className={styles.validationSummary} role="alert">
+          <p>{error}</p>
+          <Button
+            onClick={onRetryLoad}
+            size="small"
+            type="button"
+            variant="outline"
+          >
+            Coba lagi
+          </Button>
+        </div>
+      )}
+
+      {!loading && !error && history.length === 0 ? (
         <div className={styles.emptyState}>
           <span className={styles.emptyIcon} aria-hidden="true">
             <FolderX size={30} />
           </span>
           <h3>Belum ada riwayat analisis</h3>
           <p>
-            CV yang dianalisis akan muncul di sini. Mulai analisis pertama
-            untuk melihat hasilnya.
+            CV yang berhasil dianalisis akan muncul di sini. Mulai analisis
+            pertama untuk melihat hasilnya.
           </p>
           <Button
             leadingIcon={<FilePlus2 size={17} />}
@@ -104,13 +139,13 @@ export function HistoryView({
             Analisis CV Pertama
           </Button>
         </div>
-      ) : (
+      ) : history.length > 0 ? (
         <>
           <div className={styles.historyTools}>
             <label className={styles.searchField}>
               <span>Cari berdasarkan nama file</span>
               <Input
-                onChange={(event) => onSearchTermChange(event.currentTarget.value)}
+                onChange={(event) => setSearchTerm(event.currentTarget.value)}
                 placeholder="Cari nama CV..."
                 startAdornment={<Search size={17} />}
                 type="search"
@@ -121,7 +156,7 @@ export function HistoryView({
               <span>Filter status</span>
               <Select
                 onChange={(event) =>
-                  onStatusFilterChange(toStatusFilter(event.currentTarget.value))
+                  setStatusFilter(toStatusFilter(event.currentTarget.value))
                 }
                 value={statusFilter}
               >
@@ -158,9 +193,7 @@ export function HistoryView({
                           </span>
                           <span className={styles.documentCopy}>
                             <strong title={record.name}>{record.name}</strong>
-                            <span>
-                              {record.format} · {formatCvFileSize(record.size)}
-                            </span>
+                            <span>CV tersimpan</span>
                           </span>
                         </div>
                       </td>
@@ -171,27 +204,27 @@ export function HistoryView({
                         </Badge>
                       </td>
                       <td>
-                        <div className={styles.tableActions}>
-                          <Button
-                            leadingIcon={<Eye size={16} />}
-                            onClick={() => onOpenRecord(record)}
-                            size="small"
-                            type="button"
-                            variant="ghost"
-                          >
-                            Lihat hasil
-                          </Button>
-                          <Button
-                            aria-label={`Analisis ulang ${record.name}`}
-                            leadingIcon={<RotateCcw size={16} />}
-                            onClick={() => onRetry(record)}
-                            size="small"
-                            type="button"
-                            variant="outline"
-                          >
-                            Ulangi
-                          </Button>
-                        </div>
+                        <Button
+                          disabled={selectedAnalysisId === record.analysisId}
+                          leadingIcon={
+                            selectedAnalysisId === record.analysisId ? (
+                              <LoaderCircle
+                                className={styles.smallSpinner}
+                                size={16}
+                              />
+                            ) : (
+                              <Eye size={16} />
+                            )
+                          }
+                          onClick={() => onOpenRecord(record)}
+                          size="small"
+                          type="button"
+                          variant="ghost"
+                        >
+                          {selectedAnalysisId === record.analysisId
+                            ? 'Memuat detail'
+                            : 'Lihat hasil'}
+                        </Button>
                       </td>
                     </tr>
                   ))}
@@ -200,19 +233,35 @@ export function HistoryView({
             </div>
           )}
 
-          <div className={styles.demoHistoryFooter}>
-            <Badge variant="neutral">Data demo lokal</Badge>
-            <Button
-              onClick={onClearDemoHistory}
-              size="small"
-              type="button"
-              variant="ghost"
-            >
-              Kosongkan data demo
-            </Button>
-          </div>
+          {totalPages > 1 && (
+            <div className={styles.tableActions}>
+              <span>
+                Halaman {page} dari {totalPages} · {total} analisis
+              </span>
+              <Button
+                disabled={loading || page <= 1}
+                leadingIcon={<ArrowLeft size={16} />}
+                onClick={() => onPageChange(page - 1)}
+                size="small"
+                type="button"
+                variant="outline"
+              >
+                Sebelumnya
+              </Button>
+              <Button
+                disabled={loading || page >= totalPages}
+                leadingIcon={<ArrowRight size={16} />}
+                onClick={() => onPageChange(page + 1)}
+                size="small"
+                type="button"
+                variant="outline"
+              >
+                Berikutnya
+              </Button>
+            </div>
+          )}
         </>
-      )}
+      ) : null}
     </Card>
   )
 }

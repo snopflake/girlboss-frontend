@@ -10,7 +10,8 @@ interface ResultViewProps {
   result: CvAnalysisResult
   onAnalyzeAgain(): void
   onUploadNew(): void
-  onBackToHistory(): void
+  onBackToSelection(): void
+  backLabel?: string
 }
 
 export function ResultView({
@@ -19,7 +20,8 @@ export function ResultView({
   result,
   onAnalyzeAgain,
   onUploadNew,
-  onBackToHistory,
+  onBackToSelection,
+  backLabel = 'Kembali ke pilihan CV',
 }: ResultViewProps) {
   return (
     <div className={styles.resultView}>
@@ -30,23 +32,19 @@ export function ResultView({
         <div>
           <div className={styles.resultTitleRow}>
             <h2>Analisis Selesai</h2>
-            <Badge variant="neutral">Hasil simulasi</Badge>
+            <Badge variant="neutral">Analisis AI</Badge>
           </div>
           <p>{documentName}</p>
           <span>Analisis: {formatCvDate(analyzedAt)}</span>
         </div>
       </header>
 
-      <p className={styles.simulationNotice} role="note">
-        Ini adalah hasil contoh untuk demo UI. Dokumen tidak diproses oleh AI.
-      </p>
-
       <Card className={styles.resultSection}>
         <div className={styles.sectionHeading}>
           <span className={styles.score}>{result.score}</span>
           <div>
             <h3>Ringkasan Evaluasi</h3>
-            <p>Skor contoh simulasi</p>
+            <p>Skor kualitas CV</p>
           </div>
         </div>
         <p className={styles.resultSummary}>{result.summary}</p>
@@ -107,11 +105,11 @@ export function ResultView({
         </Button>
         <Button
           leadingIcon={<ArrowLeft size={17} />}
-          onClick={onBackToHistory}
+          onClick={onBackToSelection}
           type="button"
           variant="ghost"
         >
-          Kembali ke Riwayat
+          {backLabel}
         </Button>
       </div>
     </div>

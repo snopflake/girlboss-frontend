@@ -1,4 +1,4 @@
-import { Check, Circle, LoaderCircle, X } from 'lucide-react'
+import { Circle, LoaderCircle } from 'lucide-react'
 import { Button, Card } from '../../../design-system/components'
 import styles from '../pages/CvAnalyzerPage.module.css'
 
@@ -10,76 +10,74 @@ const analysisSteps = [
 
 interface ProcessingViewProps {
   documentName: string
-  progress: number
-  onCancel(): void
+  mode?: 'analysis' | 'history'
+  onBackToHistory?(): void
 }
 
 export function ProcessingView({
   documentName,
-  progress,
-  onCancel,
+  mode = 'analysis',
+  onBackToHistory,
 }: ProcessingViewProps) {
-  const activeStep = progress < 28 ? 0 : progress < 70 ? 1 : 2
+  const isHistoricalAnalysis = mode === 'history'
 
   return (
     <Card className={styles.processingCard}>
       <div className={styles.processingIcon} aria-hidden="true">
         <LoaderCircle className={styles.spinner} size={30} />
       </div>
-      <h2>Sedang Menganalisis CV Kamu</h2>
-      <p className={styles.mutedText}>{documentName}</p>
+      <h2>
+        {isHistoricalAnalysis
+          ? 'Analisis Masih Diproses'
+          : 'Sedang Menganalisis CV Kamu'}
+      </h2>
+      <p className={styles.mutedText}>
+        {isHistoricalAnalysis
+          ? `${documentName}. Periksa kembali riwayat nanti untuk melihat hasilnya.`
+          : documentName}
+      </p>
       <span className={`${styles.statusBadge} ${styles.processingBadge}`}>
         <LoaderCircle className={styles.smallSpinner} size={15} />
         Diproses
       </span>
       <div className={styles.progressTrack}>
         <div
-          aria-label="Progress simulasi analisis"
-          aria-valuemax={100}
-          aria-valuemin={0}
-          aria-valuenow={progress}
-          className={styles.progressBar}
+          aria-label="Analisis CV sedang diproses"
+          aria-valuetext="Menunggu hasil dari backend"
+          className={`${styles.progressBar} ${styles.indeterminateProgressBar}`}
           role="progressbar"
-          style={{ width: `${progress}%` }}
         />
       </div>
-      <p className={styles.progressLabel}>{progress}% selesai</p>
-      <ol className={styles.steps}>
-        {analysisSteps.map((step, index) => (
-          <li
-            className={[
-              styles.step,
-              index < activeStep ? styles.stepDone : '',
-              index === activeStep ? styles.stepActive : '',
-            ]
-              .filter(Boolean)
-              .join(' ')}
-            key={step}
-          >
-            <span className={styles.stepIcon} aria-hidden="true">
-              {index < activeStep ? (
-                <Check size={16} />
-              ) : index === activeStep ? (
-                <LoaderCircle className={styles.smallSpinner} size={16} />
-              ) : (
-                <Circle size={16} />
-              )}
-            </span>
-            <span>{step}</span>
-          </li>
-        ))}
-      </ol>
-      <p className={styles.simulationNotice} role="status">
-        Proses ini hanya simulasi lokal; AI belum menganalisis dokumen.
+      <p className={styles.progressLabel} role="status">
+        {isHistoricalAnalysis
+          ? 'Backend melaporkan status PROCESSING.'
+          : 'Menunggu hasil analisis dari backend...'}
       </p>
-      <Button
-        leadingIcon={<X size={16} />}
-        onClick={onCancel}
-        type="button"
-        variant="outline"
-      >
-        Batalkan
-      </Button>
+      {!isHistoricalAnalysis && (
+        <ol className={styles.steps}>
+          {analysisSteps.map((step, index) => (
+            <li className={styles.step} key={step}>
+              <span className={styles.stepIcon} aria-hidden="true">
+                {index === 0 ? (
+                  <LoaderCircle className={styles.smallSpinner} size={16} />
+                ) : (
+                  <Circle size={16} />
+                )}
+              </span>
+              <span>{step}</span>
+            </li>
+          ))}
+        </ol>
+      )}
+      {isHistoricalAnalysis && onBackToHistory && (
+        <Button
+          onClick={onBackToHistory}
+          type="button"
+          variant="outline"
+        >
+          Kembali ke riwayat
+        </Button>
+      )}
     </Card>
   )
 }
