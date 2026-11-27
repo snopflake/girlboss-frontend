@@ -558,6 +558,21 @@
   transition: width var(--duration-normal) ease;
 }
 
+.progressBarIndeterminate {
+  width: 40%;
+  animation: interview-progress 1.4s ease-in-out infinite;
+}
+
+@keyframes interview-progress {
+  from {
+    transform: translateX(-100%);
+  }
+
+  to {
+    transform: translateX(250%);
+  }
+}
+
 .progressLabel,
 .progressSummary {
   margin: 0;
@@ -859,7 +874,7 @@
 
 .feedbackGrid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
   gap: var(--space-3);
 }
 

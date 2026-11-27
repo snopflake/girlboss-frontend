@@ -1,4 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
+import { AuthApiError } from '../../auth/api/authApi'
+import {
+  completeInterviewSession,
+  createInterviewSession,
+  getInterviewSession,
+  submitInterviewAnswer,
+  type EvaluatedInterviewAnswerRecord,
+  type InterviewEvaluationRecord,
+  type InterviewSessionRecord,
+} from '../api/interviewApi'
 import { InterviewHistoryView } from '../components/InterviewHistoryView'
 import { InterviewPreparationView } from '../components/InterviewPreparationView'
 import { InterviewSessionView } from '../components/InterviewSessionView'
@@ -9,15 +19,8 @@ import {
 import { InterviewSidebar } from '../components/InterviewSidebar'
 import { InterviewSummaryView } from '../components/InterviewSummaryView'
 import { EndSessionDialog } from '../components/EndSessionDialog'
-import {
-  createInterviewQuestions,
-  createMockFeedback,
-  experienceLevels,
-  initialInterviewSessions,
-  mockJobs,
-} from '../mocks/interviewMock'
+import { experienceLevels, mockJobs } from '../mocks/interviewMock'
 import type {
-  DemoFailureMode,
   ExperienceLevel,
   InterviewScreen,
   InterviewSession,
@@ -25,7 +28,6 @@ import type {
   InterviewStage,
   WorkContext,
 } from '../types/interview'
-import { getAnsweredCount } from '../utils/interviewFormatters'
 import styles from './InterviewPage.module.css'
 
 const initialManualFields: ManualContextFields = {
@@ -49,6 +51,78 @@ function isExperienceLevel(value: string): value is ExperienceLevel {
   return experienceLevels.some((level) => level.value === value)
 }
 
+function toInterviewSession(
+  record: InterviewSessionRecord,
+  context: WorkContext,
+  elapsedSeconds = 0,
+  currentQuestionIndex = 0,
+): InterviewSession {
+  return {
+    id: record.id,
+    context: { ...context, title: record.jobTitle },
+    status: record.status,
+    startedAt: record.startedAt,
+    elapsedSeconds,
+    currentQuestionIndex,
+    questions: record.questions.map((question) => ({
+      id: question.id,
+      category: 'Pertanyaan wawancara',
+      prompt: question.questionText,
+      status: question.answer?.evaluation ? 'ANSWERED' : 'UNANSWERED',
+      answer: question.answer?.answerText ?? '',
+      feedback: question.answer?.evaluation
+        ? toInterviewFeedback(question.answer.evaluation)
+        : undefined,
+    })),
+    summary: record.summary,
+  }
+}
+
+function toInterviewFeedback(evaluation: InterviewEvaluationRecord) {
+  const { result } = evaluation
+  return {
+    relevance: result.dimensions.relevance.feedback,
+    clarity: result.dimensions.clarity.feedback,
+    completeness: result.dimensions.completeness.feedback,
+    delivery: result.dimensions.delivery.feedback,
+    dimensionScores: {
+      relevance: result.dimensions.relevance.score,
+      clarity: result.dimensions.clarity.score,
+      completeness: result.dimensions.completeness.score,
+      delivery: result.dimensions.delivery.score,
+    },
+    overallFeedback: result.overallFeedback,
+    recommendation: result.improvementTips.join(' '),
+    score: evaluation.score,
+  }
+}
+
+function applyAnswerToSession(
+  session: InterviewSession,
+  questionId: string,
+  answer: EvaluatedInterviewAnswerRecord,
+): InterviewSession {
+  return {
+    ...session,
+    questions: session.questions.map((question) =>
+      question.id === questionId
+        ? {
+            ...question,
+            answer: answer.answerText,
+            status: 'ANSWERED',
+            feedback: toInterviewFeedback(answer.evaluation),
+          }
+        : question,
+    ),
+  }
+}
+
+function getApiErrorMessage(error: unknown): string {
+  if (error instanceof AuthApiError) return error.message
+  if (error instanceof Error) return error.message
+  return 'Permintaan wawancara tidak dapat diproses. Silakan coba lagi.'
+}
+
 export default function InterviewPage() {
   const [screen, setScreen] = useState<InterviewScreen>('setup')
   const [source, setSource] = useState<InterviewSource>('JOB')
@@ -58,26 +132,29 @@ export default function InterviewPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [manualFields, setManualFields] =
     useState<ManualContextFields>(initialManualFields)
-  const [sessions, setSessions] = useState<InterviewSession[]>(() =>
-    initialInterviewSessions.map(cloneSession),
-  )
+  const [sessions, setSessions] = useState<InterviewSession[]>([])
   const [session, setSession] = useState<InterviewSession | null>(null)
   const [stage, setStage] = useState<InterviewStage>('answering')
-  const [progress, setProgress] = useState(0)
+  const [creationError, setCreationError] = useState('')
+  const [creationTitle, setCreationTitle] = useState('')
+  const [evaluationError, setEvaluationError] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [completionError, setCompletionError] = useState('')
+  const [isCompleting, setIsCompleting] = useState(false)
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
-  const [demoFailureMode, setDemoFailureMode] =
-    useState<DemoFailureMode>('NONE')
   const [isEndDialogOpen, setIsEndDialogOpen] = useState(false)
   const [historySearch, setHistorySearch] = useState('')
   const [historyFilter, setHistoryFilter] =
     useState<'ALL' | InterviewSession['status']>('ALL')
   const sessionRef = useRef<InterviewSession | null>(null)
   const elapsedRef = useRef(0)
+  const submissionInProgress = useRef(false)
+  const completionInProgress = useRef(false)
 
   const currentQuestion =
     session?.questions[session.currentQuestionIndex] ?? null
   const validManualContext =
-    manualFields.title.trim().length > 0 &&
+    manualFields.title.trim().length >= 2 &&
     manualFields.experienceLevel !== ''
 
   function saveSession(nextSession: InterviewSession) {
@@ -92,51 +169,6 @@ export default function InterviewPage() {
         : [nextSession, ...records]
     })
   }
-
-  useEffect(() => {
-    if (screen !== 'preparing' || progress >= 100) return
-    const timer = window.setTimeout(() => {
-      setProgress((value) => Math.min(value + 25, 100))
-    }, 320)
-    return () => window.clearTimeout(timer)
-  }, [progress, screen])
-
-  useEffect(() => {
-    if (screen !== 'preparing' || progress < 100) return
-    const timer = window.setTimeout(() => {
-      if (demoFailureMode === 'PREPARATION') {
-        setDemoFailureMode('NONE')
-        setScreen('preparation-error')
-        return
-      }
-      setStage('answering')
-      setScreen('session')
-    }, 320)
-    return () => window.clearTimeout(timer)
-  }, [demoFailureMode, progress, screen])
-
-  const questionId = currentQuestion?.id ?? null
-  useEffect(() => {
-    if (screen !== 'session' || stage !== 'evaluating' || !questionId) return
-    const timer = window.setTimeout(() => {
-      if (demoFailureMode === 'EVALUATION') {
-        setDemoFailureMode('NONE')
-        setStage('evaluation-error')
-        return
-      }
-
-      const current = sessionRef.current
-      if (!current) return
-      const questions = current.questions.map((question) =>
-        question.id === questionId
-          ? { ...question, feedback: createMockFeedback() }
-          : question,
-      )
-      saveSession({ ...current, questions })
-      setStage('feedback')
-    }, 900)
-    return () => window.clearTimeout(timer)
-  }, [demoFailureMode, questionId, screen, stage])
 
   useEffect(() => {
     if (screen !== 'session') return
@@ -155,7 +187,9 @@ export default function InterviewPage() {
   useEffect(() => {
     if (!isEndDialogOpen) return
     function closeOnEscape(event: KeyboardEvent) {
-      if (event.key === 'Escape') setIsEndDialogOpen(false)
+      if (event.key === 'Escape' && !completionInProgress.current) {
+        setIsEndDialogOpen(false)
+      }
     }
     window.addEventListener('keydown', closeOnEscape)
     return () => window.removeEventListener('keydown', closeOnEscape)
@@ -188,50 +222,33 @@ export default function InterviewPage() {
     }
   }
 
-  function startSession() {
+  async function startSession() {
     const context = buildContext()
     if (!context) return
-    const nextSession: InterviewSession = {
-      id: `interview-${Date.now()}`,
-      context,
-      status: 'IN_PROGRESS',
-      startedAt: new Date().toISOString(),
-      elapsedSeconds: 0,
-      currentQuestionIndex: 0,
-      questions: createInterviewQuestions(),
-    }
-    elapsedRef.current = 0
-    setElapsedSeconds(0)
-    saveSession(nextSession)
-    setStage('answering')
-    setProgress(0)
+    setCreationError('')
+    setCreationTitle(context.title)
     setScreen('preparing')
+    try {
+      const created = await createInterviewSession(context.title)
+      const nextSession = toInterviewSession(created, context)
+      elapsedRef.current = 0
+      setElapsedSeconds(0)
+      saveSession(nextSession)
+      setStage('answering')
+      setScreen('session')
+    } catch (error) {
+      setCreationError(getApiErrorMessage(error))
+      setScreen('preparation-error')
+    }
   }
 
-  function cancelPreparation() {
-    const current = sessionRef.current
-    if (current) {
-      const cancelledSession = {
-        ...current,
-        status: 'CANCELLED' as const,
-        endedAt: new Date().toISOString(),
-        elapsedSeconds: elapsedRef.current,
-      }
-      sessionRef.current = cancelledSession
-      setSessions((records) => [
-        cancelledSession,
-        ...records.filter((record) => record.id !== cancelledSession.id),
-      ])
-    }
-    sessionRef.current = null
-    setSession(null)
-    setProgress(0)
+  function returnToSetup() {
+    setCreationError('')
     setScreen('setup')
   }
 
   function retryPreparation() {
-    setProgress(0)
-    setScreen('preparing')
+    void startSession()
   }
 
   function updateCurrentQuestion(
@@ -249,17 +266,94 @@ export default function InterviewPage() {
   }
 
   function changeAnswer(value: string) {
-    updateCurrentQuestion((question) => ({ ...question, answer: value }))
+    updateCurrentQuestion((question) => ({
+      ...question,
+      answer: value,
+      status: 'UNANSWERED',
+      feedback: undefined,
+    }))
+  }
+
+  async function sendCurrentAnswer(reconcileBeforeRetry = false) {
+    const current = sessionRef.current
+    const question = current?.questions[current.currentQuestionIndex]
+    const answerText = question?.answer.trim()
+    if (!current || !question || !answerText || submissionInProgress.current) {
+      return
+    }
+
+    submissionInProgress.current = true
+    setIsSubmitting(true)
+    setEvaluationError('')
+    setStage('evaluating')
+
+    try {
+      if (reconcileBeforeRetry) {
+        const remote = await getInterviewSession(current.id)
+        const remoteQuestion = remote.questions.find(
+          (item) => item.id === question.id,
+        )
+        if (remote.status === 'COMPLETED') {
+          const completed = toInterviewSession(
+            remote,
+            current.context,
+            elapsedRef.current,
+            current.currentQuestionIndex,
+          )
+          saveSession(completed)
+          setIsEndDialogOpen(false)
+          setScreen('summary')
+          return
+        }
+        if (remote.status !== 'IN_PROGRESS') {
+          throw new AuthApiError('Sesi wawancara sudah tidak dapat dilanjutkan.', 409)
+        }
+        if (!remoteQuestion) {
+          throw new AuthApiError('Pertanyaan tidak ditemukan pada sesi ini.', 404)
+        }
+        if (remoteQuestion.answer?.evaluation) {
+          saveSession(
+            toInterviewSession(
+              remote,
+              current.context,
+              elapsedRef.current,
+              current.currentQuestionIndex,
+            ),
+          )
+          setStage('feedback')
+          return
+        }
+        if (remoteQuestion.answer) {
+          throw new AuthApiError(
+            'Jawaban sudah tersimpan, tetapi evaluasinya belum tersedia. Muat ulang sesi sebelum mencoba lagi.',
+            409,
+          )
+        }
+      }
+
+      const answer = await submitInterviewAnswer(
+        current.id,
+        question.id,
+        answerText,
+      )
+      const latest = sessionRef.current ?? current
+      saveSession(applyAnswerToSession(latest, question.id, answer))
+      setStage('feedback')
+    } catch (error) {
+      setEvaluationError(getApiErrorMessage(error))
+      setStage('evaluation-error')
+    } finally {
+      submissionInProgress.current = false
+      setIsSubmitting(false)
+    }
   }
 
   function submitAnswer() {
-    if (!currentQuestion?.answer.trim()) return
-    updateCurrentQuestion((question) => ({
-      ...question,
-      status: 'ANSWERED',
-      feedback: undefined,
-    }))
-    setStage('evaluating')
+    void sendCurrentAnswer()
+  }
+
+  function retryEvaluation() {
+    void sendCurrentAnswer(true)
   }
 
   function moveToNextQuestion() {
@@ -297,25 +391,56 @@ export default function InterviewPage() {
     setStage(isLast ? 'complete' : 'answering')
   }
 
-  function answerAgain() {
+  function returnToUnansweredQuestion() {
+    const current = sessionRef.current
+    if (!current) return
+    const index = current.questions.findIndex(
+      (question) => question.status !== 'ANSWERED',
+    )
+    if (index < 0) return
+    saveSession({ ...current, currentQuestionIndex: index })
     setStage('answering')
   }
 
   function endSession() {
+    const current = sessionRef.current
+    if (!current?.questions.every((question) => question.status === 'ANSWERED')) {
+      return
+    }
+    setCompletionError('')
     setIsEndDialogOpen(true)
   }
 
-  function confirmEndSession() {
+  async function confirmEndSession() {
     const current = sessionRef.current
-    if (!current) return
-    saveSession({
-      ...current,
-      status: 'COMPLETED',
-      endedAt: new Date().toISOString(),
-      elapsedSeconds: elapsedRef.current,
-    })
-    setIsEndDialogOpen(false)
-    setScreen('summary')
+    if (
+      !current ||
+      !current.questions.every((question) => question.status === 'ANSWERED') ||
+      completionInProgress.current
+    ) {
+      return
+    }
+
+    completionInProgress.current = true
+    setIsCompleting(true)
+    setCompletionError('')
+    try {
+      const completed = await completeInterviewSession(current.id)
+      const nextSession = toInterviewSession(
+        completed.session,
+        current.context,
+        elapsedRef.current,
+        current.questions.length - 1,
+      )
+      saveSession({ ...nextSession, summary: completed.summary })
+      setIsEndDialogOpen(false)
+      setScreen('summary')
+    } catch (error) {
+      setCompletionError(getApiErrorMessage(error))
+    } finally {
+      completionInProgress.current = false
+      setIsCompleting(false)
+    }
   }
 
   function beginNewSession() {
@@ -362,8 +487,6 @@ export default function InterviewPage() {
 
   const pageTitle =
     screen === 'history' ? 'Semua Sesi Latihan' : 'AI Interview Preparation'
-  const answeredCount = session ? getAnsweredCount(session.questions) : 0
-
   return (
     <section className={styles.page} aria-labelledby="interview-page-title">
       {screen !== 'preparing' && screen !== 'preparation-error' && (
@@ -382,38 +505,37 @@ export default function InterviewPage() {
 
       {screen === 'preparing' && (
         <InterviewPreparationView
-          onCancel={cancelPreparation}
-          progress={progress}
-          title={session?.context.title ?? ''}
+          onCancel={returnToSetup}
+          title={creationTitle}
         />
       )}
 
       {screen === 'preparation-error' && (
         <InterviewPreparationView
           failed
-          onCancel={cancelPreparation}
+          errorMessage={creationError}
+          onCancel={returnToSetup}
           onRetry={retryPreparation}
-          progress={progress}
-          title={session?.context.title ?? ''}
+          title={creationTitle}
         />
       )}
 
       {screen === 'session' && session && (
         <InterviewSessionView
-          demoFailureMode={demoFailureMode}
           elapsedSeconds={elapsedSeconds}
-          onAnswerAgain={answerAgain}
+          isSubmitting={isSubmitting}
           onAnswerChange={changeAnswer}
-          onDemoFailureModeChange={setDemoFailureMode}
           onEnd={endSession}
           onNext={moveToNextQuestion}
-          onRetryEvaluation={() => setStage('evaluating')}
+          onReturnToUnanswered={returnToUnansweredQuestion}
+          onRetryEvaluation={retryEvaluation}
           onSkip={skipQuestion}
           onSubmit={submitAnswer}
           question={currentQuestion}
           questionIndex={session.currentQuestionIndex}
           session={session}
           stage={stage}
+          submissionError={evaluationError}
         />
       )}
 
@@ -445,7 +567,7 @@ export default function InterviewPage() {
                 onSearchChange={setSearchTerm}
                 onSelectJob={setSelectedJobId}
                 onSourceChange={setSource}
-                onStart={startSession}
+                onStart={() => void startSession()}
                 searchTerm={searchTerm}
                 selectedJobId={selectedJobId}
                 source={source}
@@ -476,8 +598,6 @@ export default function InterviewPage() {
           </div>
 
           <InterviewSidebar
-            demoFailureMode={demoFailureMode}
-            onDemoFailureModeChange={setDemoFailureMode}
             onOpenHistory={() => setScreen('history')}
             onResume={resumeSession}
             sessions={sessions}
@@ -487,16 +607,19 @@ export default function InterviewPage() {
 
       {isEndDialogOpen && session && (
         <EndSessionDialog
-          onConfirmEnd={confirmEndSession}
-          onContinue={() => setIsEndDialogOpen(false)}
+          errorMessage={completionError}
+          isSubmitting={isCompleting}
+          onConfirmEnd={() => void confirmEndSession()}
+          onContinue={() => {
+            if (!completionInProgress.current) setIsEndDialogOpen(false)
+          }}
           session={session}
         />
       )}
 
       {screen === 'summary' && session && (
         <p className={styles.summaryStatus} role="status">
-          {answeredCount} jawaban tersimpan dalam sesi ini. Jawaban tidak
-          disimpan permanen setelah sesi aplikasi berakhir.
+          Jawaban dan evaluasi tersimpan pada sesi backend.
         </p>
       )}
     </section>

@@ -1,9 +1,6 @@
 import { ArrowRight, Clock3, ListChecks, Sparkles } from 'lucide-react'
-import { Badge, Button, Card, Select } from '../../../design-system/components'
-import type {
-  DemoFailureMode,
-  InterviewSession,
-} from '../types/interview'
+import { Badge, Button, Card } from '../../../design-system/components'
+import type { InterviewSession } from '../types/interview'
 import {
   formatInterviewDate,
   getSessionStatusLabel,
@@ -12,8 +9,6 @@ import styles from '../pages/InterviewPage.module.css'
 
 interface InterviewSidebarProps {
   sessions: InterviewSession[]
-  demoFailureMode: DemoFailureMode
-  onDemoFailureModeChange(value: DemoFailureMode): void
   onOpenHistory(): void
   onResume(session: InterviewSession): void
 }
@@ -26,8 +21,6 @@ function statusVariant(status: InterviewSession['status']) {
 
 export function InterviewSidebar({
   sessions,
-  demoFailureMode,
-  onDemoFailureModeChange,
   onOpenHistory,
   onResume,
 }: InterviewSidebarProps) {
@@ -45,7 +38,7 @@ export function InterviewSidebar({
         <ol className={styles.howSteps}>
           <li>Pilih konteks pekerjaan atau isi secara manual.</li>
           <li>Jawab pertanyaan latihan dengan metode STAR.</li>
-          <li>Tinjau masukan simulasi dan rangkuman sesi.</li>
+          <li>Tinjau masukan Gemini dan ringkasan sesi.</li>
         </ol>
       </Card>
 
@@ -103,31 +96,12 @@ export function InterviewSidebar({
           <h2>Tentang Evaluasi AI</h2>
         </div>
         <Badge className={styles.localBadge} variant="primary">
-          Simulasi lokal
+          Evaluasi Gemini
         </Badge>
         <p className={styles.sidebarDescription}>
-          Pertanyaan dan evaluasi ini adalah contoh UI. Jawaban hanya berada di
-          memori sesi dan tidak dikirim ke layanan AI.
+          Jawaban teks dikirim ke backend untuk dievaluasi. Ringkasan tersedia
+          setelah seluruh pertanyaan berhasil dijawab.
         </p>
-        <div className={styles.demoControl}>
-          <label htmlFor="demo-failure-mode">Skenario demo</label>
-          <Select
-            id="demo-failure-mode"
-            onChange={(event) => {
-              const value = event.currentTarget.value
-              onDemoFailureModeChange(
-                value === 'PREPARATION' || value === 'EVALUATION'
-                  ? value
-                  : 'NONE',
-              )
-            }}
-            value={demoFailureMode}
-          >
-            <option value="NONE">Berjalan normal</option>
-            <option value="PREPARATION">Tampilkan gagal menyiapkan</option>
-            <option value="EVALUATION">Tampilkan gagal evaluasi</option>
-          </Select>
-        </div>
       </Card>
     </aside>
   )

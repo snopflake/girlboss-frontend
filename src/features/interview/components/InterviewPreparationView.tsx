@@ -1,30 +1,22 @@
-import { Check, Circle, LoaderCircle, X } from 'lucide-react'
+import { LoaderCircle, X } from 'lucide-react'
 import { Button, Card } from '../../../design-system/components'
 import styles from '../pages/InterviewPage.module.css'
 
 interface InterviewPreparationViewProps {
   title: string
-  progress: number
   onCancel(): void
   onRetry?(): void
   failed?: boolean
+  errorMessage?: string
 }
-
-const setupSteps = [
-  'Menyiapkan konteks pekerjaan',
-  'Memuat pertanyaan latihan',
-  'Menyiapkan ruang sesi',
-]
 
 export function InterviewPreparationView({
   title,
-  progress,
   onCancel,
   onRetry,
   failed = false,
+  errorMessage,
 }: InterviewPreparationViewProps) {
-  const activeStep = Math.min(Math.floor(progress / 34), setupSteps.length - 1)
-
   return (
     <Card className={styles.preparationCard}>
       <span
@@ -51,8 +43,7 @@ export function InterviewPreparationView({
       {failed ? (
         <>
           <p className={styles.errorMessage} role="alert">
-            Simulasi gagal menyiapkan sesi. Tidak ada pertanyaan yang dibuat
-            oleh layanan AI.
+            {errorMessage ?? 'Sesi wawancara tidak dapat dibuat.'}
           </p>
           <div className={styles.setupActions}>
             <Button onClick={onRetry} type="button">
@@ -70,53 +61,17 @@ export function InterviewPreparationView({
             Diproses
           </span>
           <div
-            aria-label="Progress persiapan sesi"
+            aria-label="Permintaan pembuatan sesi sedang diproses"
             aria-valuemax={100}
             aria-valuemin={0}
-            aria-valuenow={progress}
             className={styles.progressTrack}
             role="progressbar"
           >
-            <span
-              className={styles.progressBar}
-              style={{ width: `${progress}%` }}
-            />
+            <span className={`${styles.progressBar} ${styles.progressBarIndeterminate}`} />
           </div>
-          <p className={styles.progressLabel}>{progress}% selesai</p>
-          <ol className={styles.preparationSteps}>
-            {setupSteps.map((step, index) => (
-              <li
-                className={
-                  index < activeStep
-                    ? styles.stepDone
-                    : index === activeStep
-                      ? styles.stepActive
-                      : ''
-                }
-                key={step}
-              >
-                {index < activeStep ? (
-                  <Check size={17} aria-hidden="true" />
-                ) : index === activeStep ? (
-                  <LoaderCircle
-                    className={styles.smallSpinner}
-                    size={17}
-                    aria-hidden="true"
-                  />
-                ) : (
-                  <Circle size={17} aria-hidden="true" />
-                )}
-                {step}
-              </li>
-            ))}
-          </ol>
-          <p className={styles.simulationNotice} role="note">
-            Ini hanya simulasi lokal; pertanyaan sudah disiapkan sebagai data
-            contoh.
+          <p className={styles.progressLabel} role="status">
+            Menunggu pertanyaan dari layanan AI...
           </p>
-          <Button onClick={onCancel} type="button" variant="outline">
-            Batalkan
-          </Button>
         </>
       )}
     </Card>

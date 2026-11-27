@@ -19,8 +19,6 @@ export type InterviewScreen =
   | 'session'
   | 'summary'
   | 'history'
-export type DemoFailureMode = 'NONE' | 'PREPARATION' | 'EVALUATION'
-
 export interface JobContext {
   id: string
   title: string
@@ -41,8 +39,29 @@ export interface InterviewFeedback {
   relevance: string
   clarity: string
   completeness: string
+  delivery?: string
+  overallFeedback?: string
+  dimensionScores?: {
+    relevance: number
+    clarity: number
+    completeness: number
+    delivery: number
+  }
   recommendation: string
   score?: number
+}
+
+export interface InterviewSummary {
+  answeredQuestions: number
+  totalQuestions: number
+  averageScore: number
+  dimensionAverages: {
+    relevance: number
+    clarity: number
+    completeness: number
+    delivery: number
+  }
+  improvementTips: string[]
 }
 
 export interface InterviewQuestion {
@@ -63,4 +82,5 @@ export interface InterviewSession {
   elapsedSeconds: number
   currentQuestionIndex: number
   questions: InterviewQuestion[]
+  summary?: InterviewSummary | null
 }

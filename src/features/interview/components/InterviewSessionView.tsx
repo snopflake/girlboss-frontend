@@ -5,14 +5,12 @@ import {
   Clock3,
   LoaderCircle,
   ListChecks,
-  RotateCcw,
   Send,
   SkipForward,
   X,
 } from 'lucide-react'
-import { Badge, Button, Card, Select, Textarea } from '../../../design-system/components'
+import { Badge, Button, Card, Textarea } from '../../../design-system/components'
 import type {
-  DemoFailureMode,
   InterviewQuestion,
   InterviewSession,
   InterviewStage,
@@ -29,15 +27,15 @@ interface InterviewSessionViewProps {
   questionIndex: number
   stage: InterviewStage
   elapsedSeconds: number
-  demoFailureMode: DemoFailureMode
+  isSubmitting: boolean
+  submissionError: string
   onAnswerChange(value: string): void
   onSubmit(): void
   onSkip(): void
   onNext(): void
-  onAnswerAgain(): void
+  onReturnToUnanswered(): void
   onRetryEvaluation(): void
   onEnd(): void
-  onDemoFailureModeChange(value: DemoFailureMode): void
 }
 
 function progressStatusLabel(status: InterviewQuestion['status']) {
@@ -52,18 +50,19 @@ export function InterviewSessionView({
   questionIndex,
   stage,
   elapsedSeconds,
-  demoFailureMode,
+  isSubmitting,
+  submissionError,
   onAnswerChange,
   onSubmit,
   onSkip,
   onNext,
-  onAnswerAgain,
+  onReturnToUnanswered,
   onRetryEvaluation,
   onEnd,
-  onDemoFailureModeChange,
 }: InterviewSessionViewProps) {
   const answeredCount = getAnsweredCount(session.questions)
   const isLastQuestion = questionIndex === session.questions.length - 1
+  const canComplete = answeredCount === session.questions.length
 
   return (
     <div className={styles.interviewScreen}>
@@ -83,6 +82,7 @@ export function InterviewSessionView({
           </span>
           <Button
             leadingIcon={<X size={16} />}
+            disabled={!canComplete || isSubmitting}
             onClick={onEnd}
             size="small"
             type="button"
@@ -109,9 +109,6 @@ export function InterviewSessionView({
                 </span>
                 <h3>{question.prompt}</h3>
               </div>
-              <p className={styles.simulationNotice} role="note">
-                Pertanyaan ini merupakan contoh untuk simulasi latihan.
-              </p>
             </Card>
           ) : (
             <Card className={styles.completeCard}>
@@ -123,7 +120,7 @@ export function InterviewSessionView({
                 Kamu menjawab {answeredCount} dari {session.questions.length}{' '}
                 pertanyaan. Akhiri sesi untuk melihat ringkasan.
               </p>
-              <Button onClick={onEnd} type="button">
+              <Button disabled={!canComplete} onClick={onEnd} type="button">
                 Akhiri Sesi
               </Button>
             </Card>
@@ -135,18 +132,32 @@ export function InterviewSessionView({
                 <Check size={24} />
               </span>
               <h3>Semua Pertanyaan Telah Ditinjau</h3>
-              <p>
-                Kamu menjawab {answeredCount} dari {session.questions.length}{' '}
-                pertanyaan. Pertanyaan yang dilewati tetap tercatat dalam
-                ringkasan.
-              </p>
-              <Button onClick={onEnd} type="button">
-                Akhiri Sesi
-              </Button>
+              {canComplete ? (
+                <>
+                  <p>
+                    Semua jawaban dan evaluasi sudah tersimpan. Selesaikan sesi
+                    untuk melihat ringkasan dari backend.
+                  </p>
+                  <Button onClick={onEnd} type="button">
+                    Selesaikan Sesi
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <p>
+                    Kamu menjawab {answeredCount} dari {session.questions.length}{' '}
+                    pertanyaan. Jawab pertanyaan yang tersisa sebelum sesi
+                    diselesaikan.
+                  </p>
+                  <Button onClick={onReturnToUnanswered} type="button">
+                    Kembali ke pertanyaan yang belum dijawab
+                  </Button>
+                </>
+              )}
             </Card>
           )}
 
-          {question && stage === 'answering' && (
+          {question && (stage === 'answering' || stage === 'evaluating') && (
             <Card className={styles.answerCard}>
               <div className={styles.sectionTitle}>
                 <h3>Jawaban Kamu</h3>
@@ -158,6 +169,7 @@ export function InterviewSessionView({
               <Textarea
                 id="interview-answer"
                 maxLength={2000}
+                disabled={isSubmitting}
                 onChange={(event) => onAnswerChange(event.currentTarget.value)}
                 placeholder="Tuliskan jawabanmu di sini..."
                 rows={7}
@@ -198,7 +210,7 @@ export function InterviewSessionView({
               </Card>
               <div className={styles.answerActions}>
                 <Button
-                  disabled={!question.answer.trim()}
+                  disabled={!question.answer.trim() || isSubmitting}
                   leadingIcon={<Send size={16} />}
                   onClick={onSubmit}
                   type="button"
@@ -206,6 +218,7 @@ export function InterviewSessionView({
                   Kirim Jawaban
                 </Button>
                 <Button
+                  disabled={isSubmitting}
                   leadingIcon={<SkipForward size={16} />}
                   onClick={onSkip}
                   type="button"
@@ -214,24 +227,6 @@ export function InterviewSessionView({
                   Lewati Pertanyaan
                 </Button>
               </div>
-            </Card>
-          )}
-
-          {question && stage !== 'answering' && stage !== 'complete' && (
-            <Card className={styles.submittedAnswerCard}>
-              <div className={styles.submittedHeading}>
-                <h3>Jawaban Kamu</h3>
-                <Badge variant={stage === 'evaluation-error' ? 'danger' : 'success'}>
-                  {stage === 'evaluation-error'
-                    ? 'Evaluasi gagal'
-                    : stage === 'evaluating'
-                      ? 'Dievaluasi'
-                      : 'Jawaban berhasil dikirim'}
-                </Badge>
-              </div>
-              <p className={styles.answerText}>
-                {question.answer || 'Belum ada jawaban untuk pertanyaan ini.'}
-              </p>
               {stage === 'evaluating' && (
                 <div className={styles.evaluationLoading} role="status">
                   <LoaderCircle
@@ -239,15 +234,39 @@ export function InterviewSessionView({
                     size={18}
                     aria-hidden="true"
                   />
-                  Menyiapkan evaluasi simulasi...
+                  Gemini sedang mengevaluasi jawaban...
                 </div>
               )}
+            </Card>
+          )}
+
+          {question &&
+            stage !== 'answering' &&
+            stage !== 'evaluating' &&
+            stage !== 'complete' && (
+            <Card className={styles.submittedAnswerCard}>
+              <div className={styles.submittedHeading}>
+                <h3>Jawaban Kamu</h3>
+                <Badge variant={stage === 'evaluation-error' ? 'danger' : 'success'}>
+                  {stage === 'evaluation-error'
+                    ? 'Evaluasi gagal'
+                    : 'Jawaban berhasil dikirim'}
+                </Badge>
+              </div>
+              <p className={styles.answerText}>
+                {question.answer || 'Belum ada jawaban untuk pertanyaan ini.'}
+              </p>
               {stage === 'evaluation-error' && (
                 <div className={styles.errorMessage} role="alert">
                   <AlertTriangle size={18} aria-hidden="true" />
-                  Evaluasi simulasi gagal. Jawaban tetap tersimpan dalam sesi ini.
-                  <Button onClick={onRetryEvaluation} size="small" type="button">
-                    Coba Evaluasi Lagi
+                  {submissionError}
+                  <Button
+                    disabled={isSubmitting}
+                    onClick={onRetryEvaluation}
+                    size="small"
+                    type="button"
+                  >
+                    Cek status &amp; coba lagi
                   </Button>
                 </div>
               )}
@@ -255,37 +274,61 @@ export function InterviewSessionView({
                 <div className={styles.feedbackPanel}>
                   <div className={styles.feedbackHeader}>
                     <h3>Hasil Evaluasi</h3>
-                    <Badge variant="neutral">Feedback simulasi · Tanpa skor</Badge>
+                    {question.feedback.score !== undefined && (
+                      <Badge variant="success">
+                        Skor AI: {question.feedback.score}/100
+                      </Badge>
+                    )}
                   </div>
                   <div className={styles.feedbackGrid}>
                     <div>
-                      <h4>Relevansi</h4>
+                      <h4>
+                        Relevansi
+                        {question.feedback.dimensionScores &&
+                          ` · ${question.feedback.dimensionScores.relevance}/5`}
+                      </h4>
                       <p>{question.feedback.relevance}</p>
                     </div>
                     <div>
-                      <h4>Kejelasan</h4>
+                      <h4>
+                        Kejelasan
+                        {question.feedback.dimensionScores &&
+                          ` · ${question.feedback.dimensionScores.clarity}/5`}
+                      </h4>
                       <p>{question.feedback.clarity}</p>
                     </div>
                     <div>
-                      <h4>Kelengkapan</h4>
+                      <h4>
+                        Kelengkapan
+                        {question.feedback.dimensionScores &&
+                          ` · ${question.feedback.dimensionScores.completeness}/5`}
+                      </h4>
                       <p>{question.feedback.completeness}</p>
                     </div>
+                    {question.feedback.delivery && (
+                      <div>
+                        <h4>
+                          Penyampaian
+                          {question.feedback.dimensionScores &&
+                            ` · ${question.feedback.dimensionScores.delivery}/5`}
+                        </h4>
+                        <p>{question.feedback.delivery}</p>
+                      </div>
+                    )}
                   </div>
+                  {question.feedback.overallFeedback && (
+                    <div className={styles.recommendation}>
+                      <strong>Ringkasan Evaluasi</strong>
+                      <p>{question.feedback.overallFeedback}</p>
+                    </div>
+                  )}
                   <div className={styles.recommendation}>
-                    <strong>Rekomendasi Perbaikan</strong>
+                    <strong>Saran Perbaikan</strong>
                     <p>{question.feedback.recommendation}</p>
                   </div>
                   <div className={styles.answerActions}>
                     <Button onClick={onNext} type="button">
                       {isLastQuestion ? 'Selesaikan Pertanyaan' : 'Pertanyaan Berikutnya'}
-                    </Button>
-                    <Button
-                      leadingIcon={<RotateCcw size={16} />}
-                      onClick={onAnswerAgain}
-                      type="button"
-                      variant="outline"
-                    >
-                      Jawab Ulang
                     </Button>
                   </div>
                   {isLastQuestion && (
@@ -358,28 +401,9 @@ export function InterviewSessionView({
             </ol>
           </Card>
           <Card className={styles.progressCard} padding="compact">
-            <label className={styles.demoControl}>
-              <span>Skenario evaluasi demo</span>
-              <Select
-                onChange={(event) => {
-                  const value = event.currentTarget.value
-                  onDemoFailureModeChange(
-                    value === 'EVALUATION' ? 'EVALUATION' : 'NONE',
-                  )
-                }}
-                value={
-                  demoFailureMode === 'PREPARATION'
-                    ? 'NONE'
-                    : demoFailureMode
-                }
-              >
-                <option value="NONE">Berjalan normal</option>
-                <option value="EVALUATION">Tampilkan gagal evaluasi</option>
-              </Select>
-            </label>
             <p className={styles.sidebarDescription}>
-              Jawaban tersimpan hanya di memori aplikasi dan akan hilang saat
-              sesi browser berakhir.
+              Jawaban dikirim ke backend untuk dievaluasi oleh Gemini. Kamu
+              tidak dapat mengirim jawaban yang sama lebih dari sekali.
             </p>
           </Card>
         </aside>

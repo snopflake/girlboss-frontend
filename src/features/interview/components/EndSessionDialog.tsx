@@ -6,35 +6,40 @@ import styles from '../pages/InterviewPage.module.css'
 
 interface EndSessionDialogProps {
   session: InterviewSession
+  isSubmitting: boolean
+  errorMessage: string
   onContinue(): void
   onConfirmEnd(): void
 }
 
 export function EndSessionDialog({
   session,
+  isSubmitting,
+  errorMessage,
   onContinue,
   onConfirmEnd,
 }: EndSessionDialogProps) {
   const answeredCount = getAnsweredCount(session.questions)
-  const remainingCount = session.questions.length - answeredCount
 
   return (
     <div
       className={styles.dialogBackdrop}
       onClick={(event) => {
-        if (event.target === event.currentTarget) onContinue()
+        if (event.target === event.currentTarget && !isSubmitting) onContinue()
       }}
       role="presentation"
     >
       <section
         aria-labelledby="end-session-title"
         aria-modal="true"
+        aria-busy={isSubmitting}
         className={styles.dialog}
         role="dialog"
       >
         <button
           aria-label="Tutup dialog"
           className={styles.dialogClose}
+          disabled={isSubmitting}
           onClick={onContinue}
           type="button"
         >
@@ -43,17 +48,27 @@ export function EndSessionDialog({
         <span className={styles.dialogIcon} aria-hidden="true">
           <X size={22} />
         </span>
-        <h2 id="end-session-title">Akhiri Sesi Latihan?</h2>
+        <h2 id="end-session-title">Selesaikan Sesi Wawancara?</h2>
         <p>
-          {answeredCount} jawaban telah dikirim. {remainingCount} pertanyaan
-          belum dijawab atau dilewati dan akan tetap tercatat dalam ringkasan.
+          {answeredCount} jawaban telah dievaluasi. Backend akan menyimpan status
+          selesai dan mengembalikan ringkasan sesi.
         </p>
+        {errorMessage && (
+          <p className={styles.errorMessage} role="alert">
+            {errorMessage}
+          </p>
+        )}
         <div className={styles.dialogActions}>
-          <Button onClick={onContinue} type="button" variant="outline">
+          <Button
+            disabled={isSubmitting}
+            onClick={onContinue}
+            type="button"
+            variant="outline"
+          >
             Lanjutkan Latihan
           </Button>
-          <Button onClick={onConfirmEnd} type="button">
-            Ya, Akhiri Sesi
+          <Button disabled={isSubmitting} onClick={onConfirmEnd} type="button">
+            {isSubmitting ? 'Menyelesaikan...' : 'Ya, Selesaikan Sesi'}
           </Button>
         </div>
       </section>
