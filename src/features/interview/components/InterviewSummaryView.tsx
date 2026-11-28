@@ -13,9 +13,9 @@ import {
   formatInterviewDate,
   formatInterviewDuration,
   getAnsweredCount,
-  getAverageScore,
 } from '../utils/interviewFormatters'
 import styles from '../pages/InterviewPage.module.css'
+import { SpeechMetricsView } from './SpeechMetricsView'
 
 interface InterviewSummaryViewProps {
   session: InterviewSession
@@ -35,20 +35,22 @@ export function InterviewSummaryView({
   onOpenHistory,
 }: InterviewSummaryViewProps) {
   const answeredCount = getAnsweredCount(session.questions)
-  const averageScore = getAverageScore(session)
+  const summary = session.summary
 
   return (
     <div className={styles.summaryPage}>
       <header className={styles.summaryBanner}>
         <div>
-          <Badge variant="neutral">Latihan simulasi</Badge>
+          <Badge variant="success">Hasil dari backend</Badge>
           <h2>
             {session.status === 'CANCELLED'
               ? 'Ringkasan Sesi Dibatalkan'
               : 'Sesi Latihan Selesai'}
           </h2>
           <p>
-            {session.context.title} · {session.context.company}
+            {[session.context.title, session.context.company]
+              .filter(Boolean)
+              .join(' · ')}
           </p>
           <span>
             <CalendarDays size={15} aria-hidden="true" />
@@ -65,18 +67,23 @@ export function InterviewSummaryView({
           <span>Durasi sesi</span>
           <strong>
             <Clock3 size={17} aria-hidden="true" />
-            {formatInterviewDuration(session.elapsedSeconds)}
+            {session.elapsedSeconds === null
+              ? 'Tidak tersedia'
+              : formatInterviewDuration(session.elapsedSeconds)}
           </strong>
         </Card>
         <Card className={styles.summaryStat}>
           <span>Pertanyaan dijawab</span>
           <strong>
-            {answeredCount} / {session.questions.length}
+            {summary?.answeredQuestions ?? answeredCount} /{' '}
+            {summary?.totalQuestions ?? session.questions.length}
           </strong>
         </Card>
         <Card className={styles.summaryStat}>
           <span>Rata-rata skor</span>
-          <strong>{averageScore === null ? 'Tanpa Skor' : `${averageScore}/100`}</strong>
+          <strong>
+            {summary ? `${summary.averageScore}/100` : 'Belum tersedia'}
+          </strong>
         </Card>
       </div>
 
@@ -84,10 +91,52 @@ export function InterviewSummaryView({
         <header className={styles.sectionTitle}>
           <div>
             <h3>Rincian Jawaban</h3>
-            <p>Jawaban dan evaluasi tersimpan sementara di sesi ini.</p>
+            <p>Jawaban dan evaluasi yang berhasil disimpan oleh backend.</p>
           </div>
-          <Badge variant="neutral">Feedback kualitatif</Badge>
+          <Badge variant="neutral">Evaluasi Gemini</Badge>
         </header>
+        {summary && (
+          <>
+            <div className={styles.feedbackGrid}>
+              <div>
+                <h4>Relevansi</h4>
+                <p>
+                  {summary.dimensionAverages.relevance.toLocaleString('id-ID', {
+                    maximumFractionDigits: 1,
+                  })}
+                  /5
+                </p>
+              </div>
+              <div>
+                <h4>Kejelasan</h4>
+                <p>
+                  {summary.dimensionAverages.clarity.toLocaleString('id-ID', {
+                    maximumFractionDigits: 1,
+                  })}
+                  /5
+                </p>
+              </div>
+              <div>
+                <h4>Kelengkapan</h4>
+                <p>
+                  {summary.dimensionAverages.completeness.toLocaleString('id-ID', {
+                    maximumFractionDigits: 1,
+                  })}
+                  /5
+                </p>
+              </div>
+              <div>
+                <h4>Penyampaian</h4>
+                <p>
+                  {summary.dimensionAverages.delivery.toLocaleString('id-ID', {
+                    maximumFractionDigits: 1,
+                  })}
+                  /5
+                </p>
+              </div>
+            </div>
+          </>
+        )}
         <div className={styles.accordionList}>
           {session.questions.map((question, index) => (
             <details className={styles.answerAccordion} key={question.id}>
@@ -109,7 +158,7 @@ export function InterviewSummaryView({
                 </Badge>
               </summary>
               <div className={styles.accordionContent}>
-                <h4>Jawaban Kamu</h4>
+                <h4>{question.answerSource === 'AUDIO' ? 'Transkrip Whisper' : 'Jawaban Kamu'}</h4>
                 <p>{question.answer.trim() || 'Tidak ada jawaban untuk pertanyaan ini.'}</p>
                 {question.feedback ? (
                   <>
@@ -127,6 +176,18 @@ export function InterviewSummaryView({
                         <dt>Kelengkapan</dt>
                         <dd>{question.feedback.completeness}</dd>
                       </div>
+                      {question.feedback.delivery && (
+                        <div>
+                          <dt>Penyampaian</dt>
+                          <dd>{question.feedback.delivery}</dd>
+                        </div>
+                      )}
+                      {question.feedback.overallFeedback && (
+                        <div>
+                          <dt>Ringkasan</dt>
+                          <dd>{question.feedback.overallFeedback}</dd>
+                        </div>
+                      )}
                       <div>
                         <dt>Rekomendasi</dt>
                         <dd>{question.feedback.recommendation}</dd>
@@ -136,6 +197,11 @@ export function InterviewSummaryView({
                       <p className={styles.optionalScore}>
                         Skor: {question.feedback.score}/100
                       </p>
+                    )}
+                    {question.feedback.speechMetrics && (
+                      <SpeechMetricsView
+                        metrics={question.feedback.speechMetrics}
+                      />
                     )}
                   </>
                 ) : (
@@ -155,10 +221,15 @@ export function InterviewSummaryView({
         </span>
         <div>
           <h3>Fokus Latihan Berikutnya</h3>
-          <p>
-            Latih jawaban dengan metode STAR dan sertakan hasil yang terukur
-            untuk memperjelas dampak pengalamanmu.
-          </p>
+          {summary?.improvementTips.length ? (
+            <ul className={styles.howSteps}>
+              {summary.improvementTips.map((tip) => (
+                <li key={tip}>{tip}</li>
+              ))}
+            </ul>
+          ) : (
+            <p>Rekomendasi lanjutan belum tersedia dari backend.</p>
+          )}
         </div>
       </Card>
 

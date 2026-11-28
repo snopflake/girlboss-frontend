@@ -1,9 +1,6 @@
 import { ArrowRight, Clock3, ListChecks, Sparkles } from 'lucide-react'
-import { Badge, Button, Card, Select } from '../../../design-system/components'
-import type {
-  DemoFailureMode,
-  InterviewSession,
-} from '../types/interview'
+import { Badge, Button, Card } from '../../../design-system/components'
+import type { InterviewSession } from '../types/interview'
 import {
   formatInterviewDate,
   getSessionStatusLabel,
@@ -12,10 +9,14 @@ import styles from '../pages/InterviewPage.module.css'
 
 interface InterviewSidebarProps {
   sessions: InterviewSession[]
-  demoFailureMode: DemoFailureMode
-  onDemoFailureModeChange(value: DemoFailureMode): void
+  isLoading: boolean
+  errorMessage: string
+  detailErrorMessage: string
+  onRetry(): void
+  onRetryDetail(): void
   onOpenHistory(): void
-  onResume(session: InterviewSession): void
+  onSelectSession(session: InterviewSession): void
+  loadingSessionId: string | null
 }
 
 function statusVariant(status: InterviewSession['status']) {
@@ -26,10 +27,14 @@ function statusVariant(status: InterviewSession['status']) {
 
 export function InterviewSidebar({
   sessions,
-  demoFailureMode,
-  onDemoFailureModeChange,
+  isLoading,
+  errorMessage,
+  detailErrorMessage,
+  onRetry,
+  onRetryDetail,
   onOpenHistory,
-  onResume,
+  onSelectSession,
+  loadingSessionId,
 }: InterviewSidebarProps) {
   const recentSessions = sessions.slice(0, 3)
 
@@ -45,7 +50,7 @@ export function InterviewSidebar({
         <ol className={styles.howSteps}>
           <li>Pilih konteks pekerjaan atau isi secara manual.</li>
           <li>Jawab pertanyaan latihan dengan metode STAR.</li>
-          <li>Tinjau masukan simulasi dan rangkuman sesi.</li>
+          <li>Tinjau masukan Gemini dan ringkasan sesi.</li>
         </ol>
       </Card>
 
@@ -56,19 +61,43 @@ export function InterviewSidebar({
           </span>
           <h2>Riwayat Sesi</h2>
         </div>
-        {recentSessions.length === 0 ? (
+        {isLoading && (
+          <p className={styles.sidebarDescription} role="status">
+            Memuat riwayat...
+          </p>
+        )}
+        {errorMessage && (
+          <div className={styles.sidebarDescription} role="alert">
+            {errorMessage}
+            <Button onClick={onRetry} size="small" type="button" variant="outline">
+              Coba lagi
+            </Button>
+          </div>
+        )}
+        {detailErrorMessage && (
+          <div className={styles.sidebarDescription} role="alert">
+            {detailErrorMessage}
+            <Button
+              onClick={onRetryDetail}
+              size="small"
+              type="button"
+              variant="outline"
+            >
+              Coba buka kembali
+            </Button>
+          </div>
+        )}
+        {!isLoading && !errorMessage && recentSessions.length === 0 ? (
           <p className={styles.sidebarDescription}>Belum ada sesi latihan.</p>
-        ) : (
+        ) : !errorMessage && (
           <ul className={styles.recentSessions}>
             {recentSessions.map((session) => (
               <li key={session.id}>
                 <button
                   className={styles.recentSession}
-                  onClick={() =>
-                    session.status === 'IN_PROGRESS' && onResume(session)
-                  }
+                  onClick={() => onSelectSession(session)}
                   type="button"
-                  disabled={session.status !== 'IN_PROGRESS'}
+                  disabled={Boolean(loadingSessionId)}
                 >
                   <span className={styles.recentSessionTitle}>
                     {session.context.title}
@@ -79,6 +108,9 @@ export function InterviewSidebar({
                       {getSessionStatusLabel(session.status)}
                     </Badge>
                   </span>
+                  {loadingSessionId === session.id && (
+                    <span className={styles.fieldHint}>Memuat detail...</span>
+                  )}
                 </button>
               </li>
             ))}
@@ -103,31 +135,12 @@ export function InterviewSidebar({
           <h2>Tentang Evaluasi AI</h2>
         </div>
         <Badge className={styles.localBadge} variant="primary">
-          Simulasi lokal
+          Evaluasi Gemini
         </Badge>
         <p className={styles.sidebarDescription}>
-          Pertanyaan dan evaluasi ini adalah contoh UI. Jawaban hanya berada di
-          memori sesi dan tidak dikirim ke layanan AI.
+          Jawaban teks atau rekaman suara dikirim ke backend untuk dievaluasi.
+          Transkrip dan metrik suara hanya ditampilkan jika tersedia dari backend.
         </p>
-        <div className={styles.demoControl}>
-          <label htmlFor="demo-failure-mode">Skenario demo</label>
-          <Select
-            id="demo-failure-mode"
-            onChange={(event) => {
-              const value = event.currentTarget.value
-              onDemoFailureModeChange(
-                value === 'PREPARATION' || value === 'EVALUATION'
-                  ? value
-                  : 'NONE',
-              )
-            }}
-            value={demoFailureMode}
-          >
-            <option value="NONE">Berjalan normal</option>
-            <option value="PREPARATION">Tampilkan gagal menyiapkan</option>
-            <option value="EVALUATION">Tampilkan gagal evaluasi</option>
-          </Select>
-        </div>
       </Card>
     </aside>
   )

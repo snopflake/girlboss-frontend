@@ -1,5 +1,4 @@
 export type AnalysisStatus = 'COMPLETED' | 'PROCESSING' | 'FAILED'
-export type AnalysisOutcome = 'COMPLETED' | 'FAILED'
 export type CvAnalyzerScreen = 'choose' | 'processing' | 'result' | 'failure'
 export type CvAnalyzerView = 'analyzer' | 'history'
 export type CvSource = 'saved' | 'upload'
@@ -9,11 +8,13 @@ export interface CvDocument {
   name: string
   format: 'PDF' | 'DOCX'
   size: number
-  uploadedAt: string
+  uploadedAt?: string
 }
 
-export interface AnalysisRecord extends CvDocument {
+export interface AnalysisRecord {
   analysisId: string
+  cvId: string
+  name: string
   analyzedAt: string
   status: AnalysisStatus
 }

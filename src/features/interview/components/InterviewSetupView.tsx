@@ -48,7 +48,7 @@ export function InterviewSetupView({
       .includes(normalizedSearch),
   )
   const manualValid =
-    manualFields.title.trim().length > 0 &&
+    manualFields.title.trim().length >= 2 &&
     manualFields.experienceLevel !== ''
   const canStart = source === 'JOB' ? Boolean(selectedJobId) : manualValid
 
@@ -173,12 +173,13 @@ export function InterviewSetupView({
               onChange={(event) =>
                 onManualFieldChange('title', event.currentTarget.value)
               }
+              maxLength={120}
               placeholder="Contoh: UX Researcher"
               value={manualFields.title}
             />
-            {manualFields.title.trim() === '' && (
+            {manualFields.title.trim().length < 2 && (
               <span className={styles.fieldHint}>
-                Posisi pekerjaan wajib diisi.
+                Posisi pekerjaan wajib diisi (2–120 karakter).
               </span>
             )}
           </div>
@@ -237,7 +238,8 @@ export function InterviewSetupView({
         </Button>
       </div>
       <p className={styles.simulationNotice} role="note">
-        Pertanyaan dan evaluasi bersifat simulasi lokal; belum dibuat oleh AI.
+        Pertanyaan dibuat oleh AI. Integrasi jawaban dan evaluasi akan tersedia
+        pada tahap berikutnya.
       </p>
     </Card>
   )
