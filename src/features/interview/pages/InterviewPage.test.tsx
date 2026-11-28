@@ -310,6 +310,31 @@ describe('Interview setup API integration', () => {
     expect(screen.queryByText(questions[0]!.questionText)).toBeNull()
   })
 
+  it('rejects backend question fields that do not match the frontend API contract', async () => {
+    setAuthenticatedSession()
+    const validResponse = createdSession()
+    const { questionText, ...question } = validResponse.data.questions[0]!
+    const mismatchedResponse = {
+      ...validResponse,
+      data: {
+        ...validResponse.data,
+        questions: [
+          { ...question, question_text: questionText },
+          ...validResponse.data.questions.slice(1),
+        ],
+      },
+    }
+    mockFetch(() => jsonResponse(mismatchedResponse))
+
+    renderPage()
+    fireEvent.click(screen.getByRole('button', { name: 'Mulai Simulasi' }))
+
+    expect(
+      await screen.findByText('Format respons layanan wawancara tidak valid.'),
+    ).toBeTruthy()
+    expect(screen.queryByText(questions[0]!.questionText)).toBeNull()
+  })
+
   it('reports network errors without inventing a session', async () => {
     setAuthenticatedSession()
     mockFetch(() => {

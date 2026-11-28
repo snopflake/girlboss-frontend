@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { LoaderCircle, Mic, RotateCcw, Send, Square } from 'lucide-react'
+import { Download, LoaderCircle, Mic, RotateCcw, Send, Square } from 'lucide-react'
 import { Button, Card } from '../../../design-system/components'
 import { maxInterviewAudioDurationSeconds } from '../utils/wavAudio'
 import { useInterviewAudioRecorder } from '../hooks/useInterviewAudioRecorder'
@@ -52,6 +52,14 @@ export function InterviewAudioAnswer({
   useEffect(() => {
     if (audioFile) onFileChange(audioFile)
   }, [audioFile, onFileChange])
+
+  function downloadRecording() {
+    if (!audioFile || !audioUrl) return
+    const link = document.createElement('a')
+    link.href = audioUrl
+    link.download = audioFile.name || 'interview-answer.wav'
+    link.click()
+  }
 
   return (
     <Card className={styles.audioRecorderCard} padding="compact">
@@ -147,6 +155,16 @@ export function InterviewAudioAnswer({
         <p className={styles.errorMessage} role="alert">
           {submissionError}
         </p>
+      )}
+      {isRetry && audioFile && audioUrl && (
+        <Button
+          leadingIcon={<Download size={16} />}
+          onClick={downloadRecording}
+          type="button"
+          variant="outline"
+        >
+          Unduh rekaman WAV
+        </Button>
       )}
     </Card>
   )

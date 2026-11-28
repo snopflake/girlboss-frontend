@@ -245,6 +245,12 @@ async function requestInterviewApi(
     )
     return body
   } catch (error) {
+    if (error instanceof AuthApiError && error.status === 401) {
+      throw new AuthApiError(
+        'Sesi login telah berakhir. Silakan login kembali.',
+        401,
+      )
+    }
     if (controller.signal.aborted) {
       throw new AuthApiError(
         'Permintaan ke layanan wawancara melewati batas waktu. Silakan coba lagi.',
